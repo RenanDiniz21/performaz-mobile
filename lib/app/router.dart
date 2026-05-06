@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/auth/auth_bloc.dart';
@@ -23,6 +24,7 @@ import '../features/orders/product_catalog_screen.dart';
 import '../features/routes/checkin_screen.dart';
 import '../features/routes/client_detail_screen.dart';
 import '../features/routes/route_list_screen.dart';
+import '../features/routes/route_cubit.dart';
 import '../shared/models/route.dart' as models;
 import '../shared/models/user.dart';
 import 'shell/seller_shell.dart';
@@ -50,31 +52,62 @@ class AppRouter {
 
       // --- Seller shell (mobile) ---
       ShellRoute(
-        builder: (context, state, child) => SellerShell(child: child),
+        builder: (context, state, child) => MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (_) => CartCubit()),
+            BlocProvider(create: (_) => ProductCatalogCubit()),
+            BlocProvider(create: (_) => RouteCubit()..loadRoute()),
+          ],
+          child: SellerShell(child: child),
+        ),
         routes: [
           GoRoute(
             path: '/routes',
             builder: (context, state) => const RouteListScreen(),
           ),
           GoRoute(
-            path: '/routes/client/:clientId',
+            path: '/routes/:clientId',
             builder: (context, state) => ClientDetailScreen(
-              clientId: state.pathParameters['clientId']!,
+              stop: state.extra! as models.RouteStop,
             ),
           ),
           GoRoute(
-            path: '/routes/checkin',
+            path: '/routes/:clientId/checkin',
             builder: (context, state) => CheckinScreen(
               stop: state.extra! as models.RouteStop,
             ),
           ),
           GoRoute(
             path: '/orders/catalog',
-            builder: (context, state) => ProductCatalogScreen(
-              onProductSelected: (product) {
-                // Navigate to cart after selecting a product
-              },
-            ),
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              final clientId = extra?['clientId'] as String? ?? '';
+              final clientName = extra?['clientName'] as String? ?? '';
+
+              // Init cart with client info if provided
+              if (clientId.isNotEmpty) {
+                context.read<CartCubit>().initCart(
+                  clientId: clientId,
+                  clientName: clientName,
+                );
+              }
+
+              return ProductCatalogScreen(
+                onProductSelected: (product) {
+                  context.read<CartCubit>().addProduct(product);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${product.name} adicionado'),
+                      duration: const Duration(seconds: 1),
+                      action: SnackBarAction(
+                        label: 'Ver Carrinho',
+                        onPressed: () => context.push('/orders/cart'),
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
           ),
           GoRoute(
             path: '/orders/cart',
@@ -82,15 +115,17 @@ class AppRouter {
           ),
           GoRoute(
             path: '/orders/summary',
-            builder: (context, state) => OrderSummaryScreen(
-              clientName: state.extra as String? ?? '',
-            ),
+            builder: (context, state) => const OrderSummaryScreen(),
           ),
           GoRoute(
             path: '/orders/no-sale',
-            builder: (context, state) => NoSaleScreen(
-              clientName: state.extra as String? ?? '',
-            ),
+            builder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return NoSaleScreen(
+                clientId: extra?['clientId'] as String? ?? '',
+                clientName: extra?['clientName'] as String? ?? '',
+              );
+            },
           ),
           GoRoute(
             path: '/gamification',

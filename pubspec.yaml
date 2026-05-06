@@ -55,8 +55,10 @@ dependencies:
   # Charts
   fl_chart: ^0.70.2
 
-  # CSV
+  # CSV & file sharing
   csv: ^6.0.0
+  file_picker: ^8.0.0
+  share_plus: ^10.0.0
 
   # Maps
   flutter_map: ^7.0.2
@@ -77,6 +79,8 @@ dev_dependencies:
   injectable_generator: ^2.7.0
   build_runner: ^2.4.14
   drift_dev: ^2.25.0
+  bloc_test: ^10.0.0
+  mocktail: ^1.0.0
 
 flutter:
   uses-material-design: true

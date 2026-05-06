@@ -38,11 +38,14 @@ class _SellerBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primaryLight;
+    final inactiveColor = isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight;
+
     return NavigationBar(
       selectedIndex: _currentIndex,
-      backgroundColor: cs.surface,
-      indicatorColor: cs.primary.withValues(alpha: 0.12),
+      backgroundColor: AppColors.sidebarBg,
+      indicatorColor: primaryColor.withValues(alpha: 0.2),
       onDestinationSelected: (index) {
         switch (index) {
           case 0:
@@ -57,23 +60,23 @@ class _SellerBottomNav extends StatelessWidget {
       },
       destinations: [
         NavigationDestination(
-          icon: const Icon(Icons.route_outlined),
-          selectedIcon: Icon(Icons.route, color: cs.primary),
+          icon: Icon(Icons.route_outlined, color: inactiveColor),
+          selectedIcon: Icon(Icons.route, color: primaryColor),
           label: 'Rota',
         ),
         NavigationDestination(
-          icon: const Icon(Icons.shopping_cart_outlined),
-          selectedIcon: Icon(Icons.shopping_cart, color: cs.primary),
+          icon: Icon(Icons.shopping_cart_outlined, color: inactiveColor),
+          selectedIcon: Icon(Icons.shopping_cart, color: primaryColor),
           label: 'Pedidos',
         ),
         NavigationDestination(
-          icon: const Icon(Icons.emoji_events_outlined),
-          selectedIcon: Icon(Icons.emoji_events, color: cs.primary),
+          icon: Icon(Icons.emoji_events_outlined, color: inactiveColor),
+          selectedIcon: Icon(Icons.emoji_events, color: primaryColor),
           label: 'Ranking',
         ),
         NavigationDestination(
-          icon: const Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person, color: cs.primary),
+          icon: Icon(Icons.person_outline, color: inactiveColor),
+          selectedIcon: Icon(Icons.person, color: primaryColor),
           label: 'Perfil',
         ),
       ],

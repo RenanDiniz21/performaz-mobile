@@ -75,8 +75,8 @@ class AuthRepository {
     String? phone,
   }) async {
     final response = await apiClient.put('/auth/profile', data: {
-      if (name != null) 'name': name,
-      if (phone != null) 'phone': phone,
+      'name': ?name,
+      'phone': ?phone,
     });
     return User.fromJson(response.data as Map<String, dynamic>);
   }

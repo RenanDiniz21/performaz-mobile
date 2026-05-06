@@ -78,35 +78,36 @@ class NotificationsState {
 class NotificationsCubit extends Cubit<NotificationsState> {
   NotificationsCubit() : super(const NotificationsState());
 
+  // ════════════════════════════════════════════════════════════════════
+  // 🚧 MOCK — dados falsos para apresentação.
+  //    Para integrar com a API real:
+  //    1. Descomente as linhas com getIt<ApiClient>().get(...)
+  //    2. Remova o Future.delayed e os dados mock
+  //    3. Rode: flutter pub get && dart run build_runner build
+  // ════════════════════════════════════════════════════════════════════
   Future<void> load() async {
     emit(state.copyWith(isLoading: true));
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    await Future<void>.delayed(const Duration(milliseconds: 500));
 
-    final sellers = List.generate(
-      6,
-      (i) => _SellerOption('s$i', 'Vendedor ${i + 1}'),
-    );
+    final sellers = [
+      const _SellerOption('s1', 'João Silva'),
+      const _SellerOption('s2', 'Maria Souza'),
+      const _SellerOption('s3', 'Pedro Santos'),
+    ];
 
     final history = [
       _NotificationRecord(
         id: 'n1',
-        title: 'Nova promoção',
-        message: 'Desconto de 15% em bebidas até sexta.',
-        target: 'Todos',
-        sentAt: DateTime.now().subtract(const Duration(hours: 3)),
-      ),
-      _NotificationRecord(
-        id: 'n2',
-        title: 'Reunião amanhã',
-        message: 'Reunião de equipe às 9h na sala principal.',
+        title: 'Nova Meta Mensal',
+        message: 'Confira as novas metas de vendas no painel.',
         target: 'Todos',
         sentAt: DateTime.now().subtract(const Duration(days: 1)),
       ),
       _NotificationRecord(
-        id: 'n3',
-        title: 'Meta atingida',
-        message: 'Parabéns pela meta mensal!',
-        target: 'Carlos Silva',
+        id: 'n2',
+        title: 'Reunião de Alinhamento',
+        message: 'Amanhã às 08h teremos nossa call semanal.',
+        target: 'Maria Souza',
         sentAt: DateTime.now().subtract(const Duration(days: 2)),
       ),
     ];
@@ -130,8 +131,7 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     if (title.isEmpty || message.isEmpty) return;
 
     emit(state.copyWith(isSending: true));
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    // TODO: real API call
+    await Future<void>.delayed(const Duration(milliseconds: 800));
 
     final targetName = state.selectedSellerId != null
         ? state.sellers
@@ -322,7 +322,7 @@ class _ComposeCard extends StatelessWidget {
 
           // Target selector
           DropdownButtonFormField<String>(
-            value: selectedSellerId,
+            initialValue: selectedSellerId,
             decoration: InputDecoration(
               labelText: 'Destinatário',
               filled: true,

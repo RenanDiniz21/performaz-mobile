@@ -8,10 +8,9 @@ import 'interceptors/logging_interceptor.dart';
 class ApiClient {
   ApiClient({required SecureStorage secureStorage}) {
     _dio = Dio(BaseOptions(
-      // TODO: Replace with actual API base URL
       baseUrl: const String.fromEnvironment(
         'API_BASE_URL',
-        defaultValue: 'http://localhost:3000/api',
+        defaultValue: 'http://10.0.2.2:3333/api',
       ),
       connectTimeout: const Duration(seconds: 15),
       receiveTimeout: const Duration(seconds: 15),
@@ -48,6 +47,12 @@ class ApiClient {
     Object? data,
   }) =>
       _dio.put(path, data: data);
+
+  Future<Response<T>> patch<T>(
+    String path, {
+    Object? data,
+  }) =>
+      _dio.patch(path, data: data);
 
   Future<Response<T>> delete<T>(String path) => _dio.delete(path);
 

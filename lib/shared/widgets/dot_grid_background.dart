@@ -1,37 +1,35 @@
 import 'package:flutter/material.dart';
 
-import '../../app/theme/app_colors.dart';
-
+/// Fundo com grade de pontos — idêntico ao `main` do web
+/// radial-gradient(circle, oklch(0.88 0.006 75) 1px, transparent 1px) 24x24px
 class DotGridBackground extends StatelessWidget {
   const DotGridBackground({super.key, required this.child});
-
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return CustomPaint(
-      painter: _DotGridPainter(
-        dotColor: isDark ? AppColors.darkDotGrid : AppColors.dotGrid,
-      ),
+      painter: _DotGridPainter(isDark: isDark),
       child: child,
     );
   }
 }
 
 class _DotGridPainter extends CustomPainter {
-  const _DotGridPainter({required this.dotColor});
-
-  final Color dotColor;
+  _DotGridPainter({required this.isDark});
+  final bool isDark;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = dotColor
+      ..color = isDark
+          ? const Color(0x22FFFFFF)   // pontos sutis no dark
+          : const Color(0x33C5C7E0)  // pontos sutis no light
       ..style = PaintingStyle.fill;
 
     const spacing = 24.0;
-    const dotRadius = 0.5;
+    const dotRadius = 1.0;
 
     for (double x = 0; x < size.width; x += spacing) {
       for (double y = 0; y < size.height; y += spacing) {
@@ -41,6 +39,5 @@ class _DotGridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _DotGridPainter oldDelegate) =>
-      oldDelegate.dotColor != dotColor;
+  bool shouldRepaint(_DotGridPainter old) => old.isDark != isDark;
 }

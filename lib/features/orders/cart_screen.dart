@@ -8,6 +8,7 @@ import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
 import '../../shared/models/order.dart';
 import '../../shared/models/product.dart';
+import '../../shared/widgets/app_card.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -15,10 +16,14 @@ import '../../shared/models/product.dart';
 
 class CartState extends Equatable {
   const CartState({
+    this.clientId,
+    this.clientName,
     this.items = const [],
     this.notes = '',
   });
 
+  final String? clientId;
+  final String? clientName;
   final List<OrderItem> items;
   final String notes;
 
@@ -26,17 +31,22 @@ class CartState extends Equatable {
   bool get isEmpty => items.isEmpty;
 
   CartState copyWith({
+    String? clientId,
+    String? clientName,
     List<OrderItem>? items,
     String? notes,
+    bool clearClient = false,
   }) {
     return CartState(
+      clientId: clearClient ? null : (clientId ?? this.clientId),
+      clientName: clearClient ? null : (clientName ?? this.clientName),
       items: items ?? this.items,
       notes: notes ?? this.notes,
     );
   }
 
   @override
-  List<Object?> get props => [items, notes];
+  List<Object?> get props => [clientId, clientName, items, notes];
 }
 
 // ---------------------------------------------------------------------------
@@ -45,6 +55,13 @@ class CartState extends Equatable {
 
 class CartCubit extends Cubit<CartState> {
   CartCubit() : super(const CartState());
+
+  void initCart({required String clientId, required String clientName}) {
+    emit(const CartState().copyWith(
+      clientId: clientId,
+      clientName: clientName,
+    ));
+  }
 
   void addProduct(Product product) {
     final existing = state.items.indexWhere((i) => i.product.id == product.id);
@@ -108,14 +125,19 @@ class CartScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
+    final fgColor = isDark ? AppColors.foregroundDark : AppColors.foregroundLight;
+    final mutedFg = isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight;
+    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primaryLight;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: AppColors.card,
-        elevation: 0,
-        title: Text('Carrinho', style: AppTypography.displaySmall),
+        title: Text('Carrinho', style: AppTypography.title(20)),
         centerTitle: false,
-        surfaceTintColor: Colors.transparent,
       ),
       body: BlocBuilder<CartCubit, CartState>(
         builder: (context, state) {
@@ -124,19 +146,19 @@ class CartScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.shopping_cart_outlined,
-                      size: 64, color: AppColors.mutedForeground),
+                  Icon(Icons.shopping_cart_outlined,
+                      size: 64, color: mutedFg.withValues(alpha: 0.4)),
                   const SizedBox(height: 16),
                   Text(
                     'Carrinho vazio',
-                    style: AppTypography.bodyLarge
-                        .copyWith(color: AppColors.mutedForeground),
+                    style: AppTypography.body(16)
+                        .copyWith(color: mutedFg),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Adicione produtos do catálogo',
-                    style: AppTypography.bodySmall
-                        .copyWith(color: AppColors.mutedForeground),
+                    style: AppTypography.body(13)
+                        .copyWith(color: mutedFg),
                   ),
                 ],
               ),
@@ -151,7 +173,7 @@ class CartScreen extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   itemCount: state.items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final item = state.items[index];
                     return _CartItemTile(
@@ -174,10 +196,10 @@ class CartScreen extends StatelessWidget {
               // Notes + Total + Button
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: AppColors.card,
+                decoration: BoxDecoration(
+                  color: cardColor,
                   border:
-                      Border(top: BorderSide(color: AppColors.border)),
+                      Border(top: BorderSide(color: borderColor)),
                 ),
                 child: SafeArea(
                   child: Column(
@@ -186,20 +208,10 @@ class CartScreen extends StatelessWidget {
                       // Notes field
                       TextField(
                         onChanged: context.read<CartCubit>().updateNotes,
-                        style: AppTypography.bodyMedium,
+                        style: AppTypography.body(14),
                         maxLines: 2,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           hintText: 'Observações...',
-                          hintStyle: AppTypography.bodyMedium
-                              .copyWith(color: AppColors.mutedForeground),
-                          filled: true,
-                          fillColor: AppColors.muted,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          border: OutlineInputBorder(
-                            borderRadius: AppRadius.mdBorder,
-                            borderSide: BorderSide.none,
-                          ),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -209,11 +221,11 @@ class CartScreen extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text('Total',
-                              style: AppTypography.displaySmall),
+                              style: AppTypography.title(18).copyWith(color: fgColor)),
                           Text(
                             _formatPrice(state.total),
-                            style: AppTypography.displayMedium
-                                .copyWith(color: AppColors.primary),
+                            style: AppTypography.metric(24)
+                                .copyWith(color: primaryColor),
                           ),
                         ],
                       ),
@@ -225,17 +237,8 @@ class CartScreen extends StatelessWidget {
                         height: 52,
                         child: ElevatedButton(
                           onPressed: () => context.push('/orders/summary'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: AppRadius.mdBorder,
-                            ),
-                            elevation: 0,
-                          ),
                           child: Text('Finalizar Pedido',
-                              style: AppTypography.button
-                                  .copyWith(fontSize: 16)),
+                              style: AppTypography.body(16, weight: FontWeight.w600)),
                         ),
                       ),
                     ],
@@ -271,13 +274,8 @@ class _CartItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadius.lgBorder,
-        border: Border.all(color: AppColors.border),
-      ),
       child: Row(
         children: [
           // Product info
@@ -287,19 +285,18 @@ class _CartItemTile extends StatelessWidget {
               children: [
                 Text(
                   item.product.name,
-                  style: AppTypography.bodyMedium
-                      .copyWith(fontWeight: FontWeight.w600),
+                  style: AppTypography.body(14, weight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${formatPrice(item.product.unitPrice)} / ${item.product.unitOfMeasure}',
-                  style: AppTypography.label,
+                  style: AppTypography.body(12, weight: FontWeight.w500),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Subtotal: ${formatPrice(item.subtotal)}',
-                  style: AppTypography.bodySmall
-                      .copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                  style: AppTypography.body(13, weight: FontWeight.w600)
+                      .copyWith(color: Theme.of(context).colorScheme.primary),
                 ),
               ],
             ),
@@ -308,8 +305,8 @@ class _CartItemTile extends StatelessWidget {
           // Quantity stepper
           Container(
             decoration: BoxDecoration(
-              color: AppColors.muted,
-              borderRadius: AppRadius.mdBorder,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -322,8 +319,7 @@ class _CartItemTile extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Text(
                     '${item.quantity}',
-                    style: AppTypography.bodyMedium
-                        .copyWith(fontWeight: FontWeight.w700),
+                    style: AppTypography.body(14, weight: FontWeight.w700),
                   ),
                 ),
                 _StepperButton(
@@ -359,10 +355,10 @@ class _StepperButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: AppRadius.smBorder,
+      borderRadius: BorderRadius.circular(AppRadius.sm),
       child: Padding(
         padding: const EdgeInsets.all(8),
-        child: Icon(icon, size: 18, color: AppColors.foreground),
+        child: Icon(icon, size: 18, color: Theme.of(context).colorScheme.onSurface),
       ),
     );
   }

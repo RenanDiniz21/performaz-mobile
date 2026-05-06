@@ -5,9 +5,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../app/di.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/repositories/manager_repository.dart';
 
 // ---------------------------------------------------------------------------
 // Models
@@ -62,8 +64,9 @@ class LiveMapState {
 // ---------------------------------------------------------------------------
 
 class LiveMapCubit extends Cubit<LiveMapState> {
-  LiveMapCubit() : super(const LiveMapState());
+  LiveMapCubit({required this.repository}) : super(const LiveMapState());
 
+  final ManagerRepository repository;
   Timer? _timer;
 
   Future<void> load() async {
@@ -73,22 +76,30 @@ class LiveMapCubit extends Cubit<LiveMapState> {
     });
   }
 
+  // ════════════════════════════════════════════════════════════════════
+  // 🚧 MOCK — dados falsos para apresentação.
+  //    Para integrar com a API real:
+  //    1. Descomente a linha com repository.fetchVendorLocations()
+  //    2. Remova o Future.delayed e os dados mock
+  //    3. Rode: flutter pub get && dart run build_runner build
+  // ════════════════════════════════════════════════════════════════════
   Future<void> _fetchPositions() async {
     emit(state.copyWith(isLoading: state.sellers.isEmpty));
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    await Future<void>.delayed(const Duration(milliseconds: 400));
 
-    // TODO: replace with real API
+    // TODO(api): final data = await repository.fetchVendorLocations();
+
     final now = DateTime.now();
-    final mock = [
-      _SellerPosition(id: 's0', name: 'Carlos Silva', lat: -23.5505, lng: -46.6333, updatedAt: now),
-      _SellerPosition(id: 's1', name: 'Ana Ferreira', lat: -23.5610, lng: -46.6250, updatedAt: now),
-      _SellerPosition(id: 's2', name: 'Pedro Souza', lat: -23.5430, lng: -46.6400, updatedAt: now),
-      _SellerPosition(id: 's3', name: 'Julia Lima', lat: -23.5550, lng: -46.6500, updatedAt: now),
-      _SellerPosition(id: 's4', name: 'Rafael Costa', lat: -23.5480, lng: -46.6180, updatedAt: now),
+    final sellers = [
+      _SellerPosition(id: 'v1', name: 'Carlos Mendes', lat: -23.5505, lng: -46.6333, updatedAt: now.subtract(const Duration(minutes: 5))),
+      _SellerPosition(id: 'v2', name: 'Ana Rodrigues', lat: -23.5489, lng: -46.6388, updatedAt: now.subtract(const Duration(minutes: 12))),
+      _SellerPosition(id: 'v3', name: 'Usuário Teste', lat: -23.5621, lng: -46.6540, updatedAt: now.subtract(const Duration(minutes: 2))),
+      _SellerPosition(id: 'v4', name: 'Juliana Costa', lat: -23.5534, lng: -46.6601, updatedAt: now.subtract(const Duration(minutes: 20))),
+      _SellerPosition(id: 'v5', name: 'Roberto Alves', lat: -23.5612, lng: -46.6678, updatedAt: now.subtract(const Duration(minutes: 8))),
     ];
 
     emit(state.copyWith(
-      sellers: mock,
+      sellers: sellers,
       isLoading: false,
       lastRefresh: now,
     ));
@@ -111,7 +122,9 @@ class LiveMapScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => LiveMapCubit()..load(),
+      create: (_) => LiveMapCubit(
+        repository: getIt<ManagerRepository>(),
+      )..load(),
       child: const _LiveMapBody(),
     );
   }
@@ -211,7 +224,7 @@ class _SellerSidebar extends StatelessWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(8),
               itemCount: sellers.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 4),
+              separatorBuilder: (_, _) => const SizedBox(height: 4),
               itemBuilder: (context, i) {
                 final s = sellers[i];
                 return Container(

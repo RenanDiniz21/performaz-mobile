@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -90,21 +91,15 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthCheckRequested event,
     Emitter<AuthState> emit,
   ) async {
-    // DEV BYPASS — remove before production
-    emit(const AuthAuthenticated(User(
-      id: '1',
-      name: 'Dev User',
-      email: 'dev@test.com',
-      role: UserRole.vendedor, // change to UserRole.gestor for manager panel
-    )));
-    return;
-    // END DEV BYPASS
-
     emit(const AuthLoading());
-    final user = await authRepository.getCurrentUser();
-    if (user != null) {
-      emit(AuthAuthenticated(user));
-    } else {
+    try {
+      final user = await authRepository.getCurrentUser();
+      if (user != null) {
+        emit(AuthAuthenticated(user));
+      } else {
+        emit(const AuthUnauthenticated());
+      }
+    } catch (_) {
       emit(const AuthUnauthenticated());
     }
   }
@@ -114,6 +109,27 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     Emitter<AuthState> emit,
   ) async {
     emit(const AuthLoading());
+
+    // ════════════════════════════════════════════════════════════════════
+    // 🚧 MOCK — bypass para apresentação sem backend.
+    //    Para integrar com a API real:
+    //    1. Remova este bloco if/return inteiro
+    //    2. O try/catch abaixo já faz login via AuthRepository
+    // ════════════════════════════════════════════════════════════════════
+    // BYPASS TEMPORÁRIO PARA TESTES SEM BACKEND
+    if (event.identifier == 'teste@performaz.com' && event.password == '123456') {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      emit(const AuthAuthenticated(
+        User(
+          id: 'fake_id_123',
+          name: 'Usuário Teste',
+          email: 'teste@performaz.com',
+          role: UserRole.vendedor,
+        ),
+      ));
+      return;
+    }
+
     try {
       final user = await authRepository.login(
         identifier: event.identifier,
@@ -137,7 +153,18 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   }
 
   String _parseError(Object error) {
-    // TODO: Parse DioException for structured error messages
-    return 'Falha na autenticação. Verifique suas credenciais.';
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map && data['message'] != null) {
+        return data['message'].toString();
+      }
+      return switch (error.type) {
+        DioExceptionType.connectionTimeout => 'Sem conexão com o servidor',
+        DioExceptionType.receiveTimeout    => 'Servidor demorou muito para responder',
+        DioExceptionType.badResponse       => 'Erro ${error.response?.statusCode ?? "desconhecido"}',
+        _                                  => 'Erro de rede',
+      };
+    }
+    return error.toString();
   }
 }

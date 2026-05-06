@@ -4,10 +4,14 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../app/di.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/network/api_client.dart';
 import '../../shared/models/route.dart';
+import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/dot_grid_background.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -120,8 +124,12 @@ class CheckinCubit extends Cubit<CheckinState> {
   Future<void> confirm() async {
     emit(state.copyWith(phase: CheckinPhase.submitting));
     try {
-      // TODO: persist check-in via repository
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+      await getIt<ApiClient>().post('/checkin', data: {
+        'stopId': stop.id,
+        'latitude': state.latitude,
+        'longitude': state.longitude,
+        'photoPath': state.photoPath,
+      });
       emit(state.copyWith(phase: CheckinPhase.success));
     } catch (e) {
       emit(state.copyWith(
@@ -155,251 +163,232 @@ class _CheckinView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+    final fgColor = isDark ? AppColors.foregroundDark : AppColors.foregroundLight;
+    final mutedFg = isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight;
+    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primaryLight;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: AppColors.card,
-        surfaceTintColor: Colors.transparent,
-        title: Text('Check-in', style: AppTypography.displaySmall),
-        centerTitle: false,
+        title: Text('Check-in', style: AppTypography.title(20)),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.foreground),
+          icon: Icon(Icons.arrow_back, color: fgColor),
           onPressed: () => context.pop(),
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: AppColors.border),
-        ),
       ),
-      body: BlocConsumer<CheckinCubit, CheckinState>(
-        listenWhen: (p, c) => c.phase == CheckinPhase.success,
-        listener: (context, state) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: AppColors.success,
-              content: Text(
-                'Check-in realizado com sucesso!',
-                style: AppTypography.bodyMedium.copyWith(color: Colors.white),
-              ),
-            ),
-          );
-          Future.delayed(const Duration(seconds: 1), () {
-            if (context.mounted) context.pop(true);
-          });
-        },
-        builder: (context, state) {
-          final cubit = context.read<CheckinCubit>();
-
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // Client name
-              _Card(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Cliente', style: AppTypography.label),
-                    const SizedBox(height: 4),
-                    Text(cubit.stop.clientName,
-                        style: AppTypography.displayMedium),
-                  ],
+      body: DotGridBackground(
+        child: BlocConsumer<CheckinCubit, CheckinState>(
+          listenWhen: (p, c) => c.phase == CheckinPhase.success,
+          listener: (context, state) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: AppColors.statusSuccess,
+                content: Text(
+                  'Check-in realizado com sucesso!',
+                  style: AppTypography.body(14).copyWith(color: Colors.white),
                 ),
               ),
-              const SizedBox(height: 12),
+            );
+            Future.delayed(const Duration(seconds: 1), () {
+              if (context.mounted) context.pop(true);
+            });
+          },
+          builder: (context, state) {
+            final cubit = context.read<CheckinCubit>();
 
-              // Timestamp
-              _Card(
-                child: Row(
-                  children: [
-                    const Icon(Icons.access_time,
-                        size: 20, color: AppColors.mutedForeground),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Horário', style: AppTypography.label),
-                        const SizedBox(height: 2),
-                        Text(
-                          state.timestamp != null
-                              ? _formatTimestamp(state.timestamp!)
-                              : '--',
-                          style: AppTypography.bodyMedium,
-                        ),
-                      ],
-                    ),
-                  ],
+            return ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                // Client name
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Cliente', style: AppTypography.body(12, weight: FontWeight.w500).copyWith(color: mutedFg)),
+                      const SizedBox(height: 4),
+                      Text(cubit.stop.clientName, style: AppTypography.title(18).copyWith(color: fgColor)),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-              // Geolocation
-              _Card(
-                child: Row(
-                  children: [
-                    Icon(
-                      state.phase == CheckinPhase.locating
-                          ? Icons.my_location
-                          : Icons.location_on,
-                      size: 20,
-                      color: state.phase == CheckinPhase.locating
-                          ? AppColors.mutedForeground
-                          : AppColors.success,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
+                // Timestamp
+                AppCard(
+                  child: Row(
+                    children: [
+                      Icon(Icons.access_time, size: 20, color: mutedFg),
+                      const SizedBox(width: 8),
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Localização', style: AppTypography.label),
-                          const SizedBox(height: 2),
-                          if (state.phase == CheckinPhase.locating)
-                            Text('Obtendo localização...',
-                                style: AppTypography.bodyMedium
-                                    .copyWith(color: AppColors.mutedForeground))
-                          else if (state.latitude != null)
-                            Text(
-                              '${state.latitude!.toStringAsFixed(6)}, ${state.longitude!.toStringAsFixed(6)}',
-                              style: AppTypography.bodyMedium,
-                            )
-                          else
-                            Text('Indisponível',
-                                style: AppTypography.bodyMedium
-                                    .copyWith(color: AppColors.destructive)),
-                        ],
-                      ),
-                    ),
-                    if (state.phase == CheckinPhase.locating)
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Photo capture
-              _Card(
-                child: Row(
-                  children: [
-                    const Icon(Icons.camera_alt_outlined,
-                        size: 20, color: AppColors.mutedForeground),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Foto (opcional)', style: AppTypography.label),
+                          Text('Horário', style: AppTypography.body(12, weight: FontWeight.w500).copyWith(color: mutedFg)),
                           const SizedBox(height: 2),
                           Text(
-                            state.photoPath != null
-                                ? 'Foto capturada'
-                                : 'Nenhuma foto',
-                            style: AppTypography.bodyMedium.copyWith(
-                              color: state.photoPath != null
-                                  ? AppColors.success
-                                  : AppColors.mutedForeground,
-                            ),
+                            state.timestamp != null
+                                ? _formatTimestamp(state.timestamp!)
+                                : '--',
+                            style: AppTypography.body(14).copyWith(color: fgColor),
                           ),
                         ],
                       ),
-                    ),
-                    TextButton(
-                      onPressed: cubit.pickPhoto,
-                      child: Text(
-                        state.photoPath != null ? 'Trocar' : 'Capturar',
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w600,
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Geolocation
+                AppCard(
+                  child: Row(
+                    children: [
+                      Icon(
+                        state.phase == CheckinPhase.locating
+                            ? Icons.my_location
+                            : Icons.location_on,
+                        size: 20,
+                        color: state.phase == CheckinPhase.locating
+                            ? mutedFg
+                            : AppColors.statusSuccess,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Localização', style: AppTypography.body(12, weight: FontWeight.w500).copyWith(color: mutedFg)),
+                            const SizedBox(height: 2),
+                            if (state.phase == CheckinPhase.locating)
+                              Text('Obtendo localização...',
+                                  style: AppTypography.body(14).copyWith(color: mutedFg))
+                            else if (state.latitude != null)
+                              Text(
+                                '${state.latitude!.toStringAsFixed(6)}, ${state.longitude!.toStringAsFixed(6)}',
+                                style: AppTypography.body(14).copyWith(color: fgColor),
+                              )
+                            else
+                              Text('Indisponível',
+                                  style: AppTypography.body(14).copyWith(color: AppColors.destructive)),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Error message
-              if (state.phase == CheckinPhase.error &&
-                  state.errorMessage != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.highBg,
-                    borderRadius: AppRadius.mdBorder,
-                  ),
-                  child: Text(
-                    state.errorMessage!,
-                    style: AppTypography.bodySmall
-                        .copyWith(color: AppColors.highFg),
+                      if (state.phase == CheckinPhase.locating)
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
+                        ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-              ],
+                const SizedBox(height: 12),
 
-              // Success feedback
-              if (state.phase == CheckinPhase.success)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.successBg,
-                    borderRadius: AppRadius.lgBorder,
-                  ),
+                // Photo capture
+                AppCard(
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.check_circle,
-                          color: AppColors.success, size: 24),
+                      Icon(Icons.camera_alt_outlined, size: 20, color: mutedFg),
                       const SizedBox(width: 8),
-                      Text(
-                        'Check-in realizado!',
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.success,
-                          fontWeight: FontWeight.w600,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Foto (opcional)', style: AppTypography.body(12, weight: FontWeight.w500).copyWith(color: mutedFg)),
+                            const SizedBox(height: 2),
+                            Text(
+                              state.photoPath != null
+                                  ? 'Foto capturada'
+                                  : 'Nenhuma foto',
+                              style: AppTypography.body(14).copyWith(
+                                color: state.photoPath != null
+                                    ? AppColors.statusSuccess
+                                    : mutedFg,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: cubit.pickPhoto,
+                        child: Text(
+                          state.photoPath != null ? 'Trocar' : 'Capturar',
+                          style: AppTypography.body(14, weight: FontWeight.w600).copyWith(color: primaryColor),
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 24),
 
-              // Confirm button
-              if (state.phase != CheckinPhase.success) ...[
-                const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.lgBorder),
-                      elevation: 0,
-                      disabledBackgroundColor: AppColors.muted,
+                // Error message
+                if (state.phase == CheckinPhase.error &&
+                    state.errorMessage != null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.statusError.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                     ),
-                    onPressed: (state.phase == CheckinPhase.ready)
-                        ? cubit.confirm
-                        : null,
-                    child: state.phase == CheckinPhase.submitting
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            'Confirmar Check-in',
-                            style: AppTypography.button,
-                          ),
+                    child: Text(
+                      state.errorMessage!,
+                      style: AppTypography.body(13).copyWith(color: AppColors.statusError),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Success feedback
+                if (state.phase == CheckinPhase.success)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.statusSuccess.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(AppRadius.lg),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.check_circle,
+                            color: AppColors.statusSuccess, size: 24),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Check-in realizado!',
+                          style: AppTypography.body(14, weight: FontWeight.w600).copyWith(
+                            color: AppColors.statusSuccess,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                // Confirm button
+                if (state.phase != CheckinPhase.success) ...[
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: (state.phase == CheckinPhase.ready)
+                          ? cubit.confirm
+                          : null,
+                      child: state.phase == CheckinPhase.submitting
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text('Confirmar Check-in',
+                              style: AppTypography.body(15, weight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -411,29 +400,5 @@ class _CheckinView extends StatelessWidget {
     final h = dt.hour.toString().padLeft(2, '0');
     final min = dt.minute.toString().padLeft(2, '0');
     return '$d/$m/$y $h:$min';
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Shared card wrapper
-// ---------------------------------------------------------------------------
-
-class _Card extends StatelessWidget {
-  const _Card({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadius.lgBorder,
-        border: Border.all(color: AppColors.border),
-      ),
-      child: child,
-    );
   }
 }

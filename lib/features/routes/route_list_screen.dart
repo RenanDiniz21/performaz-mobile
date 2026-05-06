@@ -1,392 +1,211 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
 import '../../shared/models/route.dart';
-
-// ---------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------
-
-class RouteListState {
-  const RouteListState({
-    this.route,
-    this.isLoading = false,
-    this.isSyncing = false,
-    this.errorMessage,
-  });
-
-  final SalesRoute? route;
-  final bool isLoading;
-  final bool isSyncing;
-  final String? errorMessage;
-
-  RouteListState copyWith({
-    SalesRoute? route,
-    bool? isLoading,
-    bool? isSyncing,
-    String? errorMessage,
-  }) {
-    return RouteListState(
-      route: route ?? this.route,
-      isLoading: isLoading ?? this.isLoading,
-      isSyncing: isSyncing ?? this.isSyncing,
-      errorMessage: errorMessage,
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Cubit
-// ---------------------------------------------------------------------------
-
-class RouteCubit extends Cubit<RouteListState> {
-  RouteCubit() : super(const RouteListState());
-
-  Future<void> loadRoute() async {
-    emit(state.copyWith(isLoading: true, errorMessage: null));
-    try {
-      // TODO: fetch from repository / local DB
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-
-      // Placeholder — replace with real data source
-      final salesRoute = SalesRoute(
-        id: 'route-001',
-        sellerId: 'seller-001',
-        date: DateTime.now(),
-        stops: [],
-      );
-
-      emit(state.copyWith(route: salesRoute, isLoading: false));
-    } catch (e) {
-      emit(state.copyWith(
-        isLoading: false,
-        errorMessage: 'Erro ao carregar rota: $e',
-      ));
-    }
-  }
-
-  Future<void> syncRoute() async {
-    emit(state.copyWith(isSyncing: true));
-    try {
-      // TODO: sync with API
-      await Future<void>.delayed(const Duration(seconds: 1));
-      emit(state.copyWith(isSyncing: false));
-    } catch (_) {
-      emit(state.copyWith(isSyncing: false));
-    }
-  }
-
-  void reorderStops(int oldIndex, int newIndex) {
-    final route = state.route;
-    if (route == null) return;
-
-    final stops = List<RouteStop>.from(route.stops);
-    if (newIndex > oldIndex) newIndex -= 1;
-    final item = stops.removeAt(oldIndex);
-    stops.insert(newIndex, item);
-
-    final reordered = [
-      for (int i = 0; i < stops.length; i++) stops[i].copyWith(order: i),
-    ];
-
-    emit(state.copyWith(
-      route: SalesRoute(
-        id: route.id,
-        sellerId: route.sellerId,
-        date: route.date,
-        stops: reordered,
-      ),
-    ));
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Screen
-// ---------------------------------------------------------------------------
+import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/dot_grid_background.dart';
+import 'route_cubit.dart';
 
 class RouteListScreen extends StatelessWidget {
   const RouteListScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => RouteCubit()..loadRoute(),
-      child: const _RouteListView(),
-    );
+  String _friendlyError(String? raw) {
+    if (raw == null) return 'Erro desconhecido';
+    if (raw.contains('connection timeout') || raw.contains('SocketException')) {
+      return 'Sem conexão com o servidor.\nVerifique se a API está rodando.';
+    }
+    if (raw.contains('404')) return 'Recurso não encontrado.';
+    if (raw.contains('401') || raw.contains('403')) return 'Sessão expirada. Faça login novamente.';
+    if (raw.contains('500')) return 'Erro interno do servidor.';
+    return 'Ocorreu um erro. Tente novamente.';
   }
-}
-
-class _RouteListView extends StatelessWidget {
-  const _RouteListView();
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+    final mutedFg = isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight;
+    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primaryLight;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: AppColors.card,
-        surfaceTintColor: Colors.transparent,
-        title: Text('Minha Rota', style: AppTypography.displaySmall),
-        centerTitle: false,
+        title: Text('Rota do Dia', style: AppTypography.title(20)),
         actions: [
-          BlocBuilder<RouteCubit, RouteListState>(
-            buildWhen: (p, c) => p.isSyncing != c.isSyncing,
-            builder: (context, state) {
-              return IconButton(
-                onPressed: state.isSyncing
-                    ? null
-                    : () => context.read<RouteCubit>().syncRoute(),
-                icon: state.isSyncing
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.sync, color: AppColors.foreground),
-              );
-            },
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: Center(
-              child: Text(
-                DateFormat('dd/MM/yyyy').format(DateTime.now()),
-                style: AppTypography.label,
-              ),
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => context.read<RouteCubit>().loadRoute(),
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: AppColors.border),
-        ),
       ),
-      body: BlocBuilder<RouteCubit, RouteListState>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: DotGridBackground(
+        child: BlocBuilder<RouteCubit, RouteState>(
+          builder: (context, state) {
+            if (state is RouteLoading) {
+              return Center(
+                child: CircularProgressIndicator(color: primaryColor),
+              );
+            }
 
-          if (state.errorMessage != null) {
-            return Center(
-              child: Text(state.errorMessage!, style: AppTypography.bodyMedium),
-            );
-          }
-
-          final route = state.route;
-          if (route == null || route.stops.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.route, size: 48, color: AppColors.mutedForeground),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Nenhuma parada agendada',
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.mutedForeground,
+            if (state is RouteError) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline, size: 48, color: AppColors.statusError),
+                    const SizedBox(height: 12),
+                    Text(_friendlyError(state.message),
+                        style: AppTypography.body(14).copyWith(color: mutedFg),
+                        textAlign: TextAlign.center,
                     ),
-                  ),
-                ],
-              ),
-            );
-          }
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => context.read<RouteCubit>().loadRoute(),
+                      child: const Text('Tentar novamente'),
+                    ),
+                  ],
+                ),
+              );
+            }
 
-          return Column(
-            children: [
-              _ProgressHeader(route: route),
-              Expanded(
-                child: ReorderableListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
+            if (state is RouteLoaded) {
+              if (state.stops.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.route_outlined, size: 64, color: mutedFg.withValues(alpha: 0.4)),
+                      const SizedBox(height: 16),
+                      Text('Nenhuma visita hoje', style: AppTypography.body(16).copyWith(color: mutedFg)),
+                    ],
                   ),
-                  itemCount: route.stops.length,
-                  onReorder: context.read<RouteCubit>().reorderStops,
-                  itemBuilder: (context, index) {
-                    final stop = route.stops[index];
-                    return _StopCard(
-                      key: ValueKey(stop.id),
+                );
+              }
+
+              return ReorderableListView.builder(
+                padding: const EdgeInsets.all(16),
+                buildDefaultDragHandles: true,
+                itemCount: state.stops.length,
+                onReorder: (oldIndex, newIndex) {
+                  context.read<RouteCubit>().reorderStops(
+                    oldIndex,
+                    newIndex > oldIndex ? newIndex - 1 : newIndex,
+                  );
+                },
+                itemBuilder: (context, index) {
+                  final stop = state.stops[index];
+                  return Padding(
+                    key: ValueKey(stop.id),
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _StopCard(
                       stop: stop,
                       index: index,
-                    );
-                  },
-                ),
-              ),
-            ],
-          );
-        },
+                      onTap: () => context.push('/routes/${stop.clientId}', extra: stop),
+                    ),
+                  );
+                },
+              );
+            }
+
+            return const SizedBox.shrink();
+          },
+        ),
       ),
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Progress header
-// ---------------------------------------------------------------------------
-
-class _ProgressHeader extends StatelessWidget {
-  const _ProgressHeader({required this.route});
-
-  final SalesRoute route;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: AppRadius.lgBorder,
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Progresso', style: AppTypography.bodyMedium),
-              Text(
-                '${route.completedCount}/${route.totalCount}',
-                style: AppTypography.displaySmall,
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: AppRadius.smBorder,
-            child: LinearProgressIndicator(
-              value: route.progressPercent,
-              minHeight: 8,
-              backgroundColor: AppColors.muted,
-              valueColor: const AlwaysStoppedAnimation(AppColors.success),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Stop card
-// ---------------------------------------------------------------------------
 
 class _StopCard extends StatelessWidget {
-  const _StopCard({super.key, required this.stop, required this.index});
+  const _StopCard({
+    required this.stop,
+    required this.index,
+    required this.onTap,
+  });
 
   final RouteStop stop;
   final int index;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: AppColors.card,
-        borderRadius: AppRadius.lgBorder,
-        child: InkWell(
-          borderRadius: AppRadius.lgBorder,
-          onTap: () => context.push('/clients/${stop.clientId}'),
-          child: Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fgColor = isDark ? AppColors.foregroundDark : AppColors.foregroundLight;
+    final mutedFg = isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight;
+    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primaryLight;
+
+    return AppCard(
+      onTap: onTap,
+      child: Row(
+        children: [
+          // Index badge
+          Container(
+            width: 32,
+            height: 32,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              borderRadius: AppRadius.lgBorder,
-              border: Border.all(color: AppColors.border),
+              color: primaryColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
+            child: Text(
+              '${index + 1}',
+              style: AppTypography.body(14, weight: FontWeight.w700).copyWith(color: primaryColor),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Order number
-                Container(
-                  width: 28,
-                  height: 28,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.muted,
-                    borderRadius: AppRadius.smBorder,
-                  ),
-                  child: Text(
-                    '${index + 1}',
-                    style: AppTypography.bodySmall
-                        .copyWith(fontWeight: FontWeight.w600),
-                  ),
+                Text(
+                  stop.clientName,
+                  style: AppTypography.body(15, weight: FontWeight.w600).copyWith(color: fgColor),
                 ),
-                const SizedBox(width: 12),
-
-                // Client info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        stop.clientName,
-                        style: AppTypography.bodyMedium
-                            .copyWith(fontWeight: FontWeight.w600),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        stop.address,
-                        style: AppTypography.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 2),
+                Text(
+                  stop.address,
+                  style: AppTypography.body(13).copyWith(color: mutedFg),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 8),
-
-                // Status chip
-                _StatusChip(status: stop.status),
-
-                const SizedBox(width: 4),
-                const Icon(Icons.drag_handle, color: AppColors.mutedForeground),
               ],
             ),
           ),
-        ),
+          const SizedBox(width: 8),
+          _StatusChip(status: stop.status),
+          const SizedBox(width: 4),
+          Icon(Icons.drag_handle, color: mutedFg, size: 20),
+        ],
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Status chip
-// ---------------------------------------------------------------------------
-
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.status});
-
   final VisitStatus status;
 
   @override
   Widget build(BuildContext context) {
-    final (label, bg, fg) = switch (status) {
-      VisitStatus.pendente => ('Pendente', AppColors.muted, AppColors.mutedForeground),
-      VisitStatus.visitado => ('Visitado', AppColors.lowBg, AppColors.lowFg),
-      VisitStatus.vendaRealizada => ('Venda', AppColors.successBg, AppColors.success),
-      VisitStatus.visitaSemVenda => ('Sem Venda', AppColors.mediumBg, AppColors.mediumFg),
+    final (label, color) = switch (status) {
+      VisitStatus.pendente       => ('Pendente', AppColors.statusWarning),
+      VisitStatus.visitado       => ('Visitado', AppColors.statusInfo),
+      VisitStatus.vendaRealizada => ('Concluído', AppColors.statusSuccess),
+      VisitStatus.visitaSemVenda => ('Sem Venda', AppColors.mutedForegroundDark),
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: AppRadius.smBorder,
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(AppRadius.full),
       ),
       child: Text(
         label,
-        style: AppTypography.bodySmall.copyWith(
-          color: fg,
-          fontWeight: FontWeight.w600,
-        ),
+        style: AppTypography.body(11, weight: FontWeight.w600).copyWith(color: color),
       ),
     );
   }
