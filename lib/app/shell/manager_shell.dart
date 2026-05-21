@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
+import '../../shared/widgets/dot_grid_background.dart';
 
 class ManagerShell extends StatelessWidget {
   const ManagerShell({super.key, required this.child});
@@ -21,7 +21,7 @@ class ManagerShell extends StatelessWidget {
           Expanded(
             child: Container(
               color: Theme.of(context).scaffoldBackgroundColor,
-              child: child,
+              child: DotGridBackground(child: child),
             ),
           ),
         ],
@@ -39,7 +39,7 @@ class _ManagerSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 260,
-      color: AppColors.sidebar,
+      color: AppColors.sidebarBg,
       child: Column(
         children: [
           // Logo
@@ -51,7 +51,7 @@ class _ManagerSidebar extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: AppColors.primaryDark,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.bolt, color: Colors.white, size: 20),
@@ -59,9 +59,7 @@ class _ManagerSidebar extends StatelessWidget {
                 const SizedBox(width: 12),
                 Text(
                   'Performaz',
-                  style: GoogleFonts.outfit(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
+                  style: AppTypography.title(20, weight: FontWeight.w700).copyWith(
                     color: Colors.white,
                   ),
                 ),
@@ -183,15 +181,15 @@ class _NavItemState extends State<_NavItem> {
           ),
           child: Row(
             children: [
-              // Active indicator — vertical red bar
+              // Active indicator — vertical indigo bar
               if (_isActive)
                 Container(
                   width: 2,
                   height: 20,
                   margin: const EdgeInsets.only(right: 10),
-                  decoration: const BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.only(
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryDark,
+                    borderRadius: const BorderRadius.only(
                       topRight: Radius.circular(2),
                       bottomRight: Radius.circular(2),
                     ),
@@ -204,15 +202,15 @@ class _NavItemState extends State<_NavItem> {
                 size: 20,
                 color: _isActive
                     ? Colors.white
-                    : AppColors.sidebarForeground,
+                    : AppColors.sidebarFg,
               ),
               const SizedBox(width: 12),
               Text(
                 widget.label,
-                style: AppTypography.bodyMedium.copyWith(
+                style: AppTypography.body(14).copyWith(
                   color: _isActive
                       ? Colors.white
-                      : AppColors.sidebarForeground,
+                      : AppColors.sidebarFg,
                   fontWeight: _isActive ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),

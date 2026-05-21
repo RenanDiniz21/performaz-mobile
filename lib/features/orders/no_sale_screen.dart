@@ -3,9 +3,12 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/di.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/network/api_client.dart';
+import '../../shared/widgets/app_card.dart';
 
 // ---------------------------------------------------------------------------
 // Reasons
@@ -31,6 +34,7 @@ class NoSaleState extends Equatable {
     this.isSubmitting = false,
     this.isSubmitted = false,
     this.showValidationError = false,
+    this.errorMessage,
   });
 
   final NoSaleReason? selectedReason;
@@ -38,6 +42,7 @@ class NoSaleState extends Equatable {
   final bool isSubmitting;
   final bool isSubmitted;
   final bool showValidationError;
+  final String? errorMessage;
 
   bool get isValid => selectedReason != null;
 
@@ -47,6 +52,7 @@ class NoSaleState extends Equatable {
     bool? isSubmitting,
     bool? isSubmitted,
     bool? showValidationError,
+    String? errorMessage,
   }) {
     return NoSaleState(
       selectedReason: selectedReason ?? this.selectedReason,
@@ -54,12 +60,13 @@ class NoSaleState extends Equatable {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       isSubmitted: isSubmitted ?? this.isSubmitted,
       showValidationError: showValidationError ?? this.showValidationError,
+      errorMessage: errorMessage,
     );
   }
 
   @override
   List<Object?> get props =>
-      [selectedReason, notes, isSubmitting, isSubmitted, showValidationError];
+      [selectedReason, notes, isSubmitting, isSubmitted, showValidationError, errorMessage];
 }
 
 // ---------------------------------------------------------------------------
@@ -67,7 +74,10 @@ class NoSaleState extends Equatable {
 // ---------------------------------------------------------------------------
 
 class NoSaleCubit extends Cubit<NoSaleState> {
-  NoSaleCubit() : super(const NoSaleState());
+  NoSaleCubit(this.apiClient, this.clientId) : super(const NoSaleState());
+
+  final ApiClient apiClient;
+  final String clientId;
 
   void selectReason(NoSaleReason reason) {
     emit(state.copyWith(
@@ -88,10 +98,19 @@ class NoSaleCubit extends Cubit<NoSaleState> {
 
     emit(state.copyWith(isSubmitting: true));
 
-    // TODO: persist via repository
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    emit(state.copyWith(isSubmitting: false, isSubmitted: true));
+    try {
+      await apiClient.patch('/clients/$clientId/no-sale', data: {
+        'reason': state.selectedReason!.name,
+        'notes': state.notes,
+      });
+      emit(state.copyWith(isSubmitting: false, isSubmitted: true));
+    } catch (e) {
+      emit(state.copyWith(
+        isSubmitting: false,
+        showValidationError: true,
+        errorMessage: 'Erro ao registrar. Tente novamente.',
+      ));
+    }
   }
 }
 
@@ -102,15 +121,17 @@ class NoSaleCubit extends Cubit<NoSaleState> {
 class NoSaleScreen extends StatelessWidget {
   const NoSaleScreen({
     super.key,
+    required this.clientId,
     required this.clientName,
   });
 
+  final String clientId;
   final String clientName;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => NoSaleCubit(),
+      create: (_) => NoSaleCubit(getIt<ApiClient>(), clientId),
       child: _NoSaleBody(clientName: clientName),
     );
   }
@@ -123,14 +144,17 @@ class _NoSaleBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
+    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primaryLight;
+    final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: AppColors.card,
-        elevation: 0,
-        title: Text('Visita sem Venda', style: AppTypography.displaySmall),
+        title: Text('Visita sem Venda', style: AppTypography.title(20)),
         centerTitle: false,
-        surfaceTintColor: Colors.transparent,
       ),
       body: BlocConsumer<NoSaleCubit, NoSaleState>(
         listenWhen: (prev, curr) => !prev.isSubmitted && curr.isSubmitted,
@@ -139,31 +163,31 @@ class _NoSaleBody extends StatelessWidget {
             context: context,
             barrierDismissible: false,
             builder: (_) => AlertDialog(
-              backgroundColor: AppColors.card,
+              backgroundColor: cardColor,
               shape:
-                  RoundedRectangleBorder(borderRadius: AppRadius.xlBorder),
+                  RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadius.xl)),
               title: Row(
                 children: [
                   const Icon(Icons.check_circle,
-                      color: AppColors.success, size: 28),
+                      color: AppColors.statusSuccess, size: 28),
                   const SizedBox(width: 12),
-                  Text('Registrado', style: AppTypography.displaySmall),
+                  Text('Registrado', style: AppTypography.title(20)),
                 ],
               ),
               content: Text(
                 'Visita sem venda registrada.',
-                style: AppTypography.bodyMedium,
+                style: AppTypography.body(14),
               ),
               actions: [
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    context.go('/orders');
+                    context.go('/routes');
                   },
                   child: Text(
                     'OK',
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.primary,
+                    style: AppTypography.body(14).copyWith(
+                      color: primaryColor,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -180,21 +204,15 @@ class _NoSaleBody extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   children: [
                     // Client header
-                    Container(
-                      width: double.infinity,
+                    AppCard(
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.card,
-                        borderRadius: AppRadius.lgBorder,
-                        border: Border.all(color: AppColors.border),
-                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Cliente', style: AppTypography.label),
+                          Text('Cliente', style: AppTypography.body(12, weight: FontWeight.w500)),
                           const SizedBox(height: 4),
                           Text(clientName,
-                              style: AppTypography.displaySmall),
+                              style: AppTypography.title(20)),
                         ],
                       ),
                     ),
@@ -203,49 +221,56 @@ class _NoSaleBody extends StatelessWidget {
                     // Reason label
                     Text(
                       'Motivo *',
-                      style: AppTypography.bodyMedium
+                      style: AppTypography.body(14)
                           .copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 12),
 
-                    // Reason radio buttons
-                    ...NoSaleReason.values.map((reason) => Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          decoration: BoxDecoration(
-                            color: AppColors.card,
-                            borderRadius: AppRadius.mdBorder,
-                            border: Border.all(
-                              color: state.selectedReason == reason
-                                  ? AppColors.primary
-                                  : AppColors.border,
-                            ),
-                          ),
-                          child: RadioListTile<NoSaleReason>(
-                            value: reason,
-                            groupValue: state.selectedReason,
-                            onChanged: (v) {
-                              if (v != null) {
-                                context.read<NoSaleCubit>().selectReason(v);
-                              }
-                            },
-                            title: Text(reason.label,
-                                style: AppTypography.bodyMedium),
-                            activeColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: AppRadius.mdBorder,
-                            ),
-                            contentPadding:
-                                const EdgeInsets.symmetric(horizontal: 8),
-                          ),
-                        )),
+                    // Reason radio buttons — using RadioGroup (Flutter 3.32+)
+                    RadioGroup<NoSaleReason>(
+                      groupValue: state.selectedReason,
+                      onChanged: (v) {
+                        if (v != null) {
+                          context.read<NoSaleCubit>().selectReason(v);
+                        }
+                      },
+                      child: Column(
+                        children: NoSaleReason.values.map((reason) => AppCard(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: EdgeInsets.zero,
+                              child: RadioListTile<NoSaleReason>(
+                                value: reason,
+                                title: Text(reason.label,
+                                    style: AppTypography.body(14)),
+                                activeColor: primaryColor,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(AppRadius.md),
+                                ),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(horizontal: 8),
+                              ),
+                            )).toList(),
+                      ),
+                    ),
 
                     // Validation error
-                    if (state.showValidationError)
+                    if (state.showValidationError && state.selectedReason == null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           'Selecione um motivo',
-                          style: AppTypography.bodySmall
+                          style: AppTypography.body(13)
+                              .copyWith(color: AppColors.destructive),
+                        ),
+                      ),
+
+                    // API error
+                    if (state.errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          state.errorMessage!,
+                          style: AppTypography.body(13)
                               .copyWith(color: AppColors.destructive),
                         ),
                       ),
@@ -255,35 +280,35 @@ class _NoSaleBody extends StatelessWidget {
                     // Notes
                     Text(
                       'Observações',
-                      style: AppTypography.bodyMedium
+                      style: AppTypography.body(14)
                           .copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 8),
                     TextField(
                       onChanged: context.read<NoSaleCubit>().updateNotes,
-                      style: AppTypography.bodyMedium,
+                      style: AppTypography.body(14),
                       maxLines: 4,
                       decoration: InputDecoration(
                         hintText: 'Informações adicionais...',
-                        hintStyle: AppTypography.bodyMedium
-                            .copyWith(color: AppColors.mutedForeground),
+                        hintStyle: AppTypography.body(14)
+                            .copyWith(color: isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight),
                         filled: true,
-                        fillColor: AppColors.card,
+                        fillColor: cardColor,
                         contentPadding: const EdgeInsets.all(16),
                         border: OutlineInputBorder(
-                          borderRadius: AppRadius.mdBorder,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                           borderSide:
-                              const BorderSide(color: AppColors.border),
+                              BorderSide(color: borderColor),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: AppRadius.mdBorder,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                           borderSide:
-                              const BorderSide(color: AppColors.border),
+                              BorderSide(color: borderColor),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: AppRadius.mdBorder,
-                          borderSide: const BorderSide(
-                              color: AppColors.primary, width: 2),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          borderSide: BorderSide(
+                              color: primaryColor, width: 2),
                         ),
                       ),
                     ),
@@ -294,9 +319,9 @@ class _NoSaleBody extends StatelessWidget {
               // Submit button
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: AppColors.card,
-                  border: Border(top: BorderSide(color: AppColors.border)),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  border: Border(top: BorderSide(color: borderColor)),
                 ),
                 child: SafeArea(
                   child: SizedBox(
@@ -307,12 +332,12 @@ class _NoSaleBody extends StatelessWidget {
                           ? null
                           : () => context.read<NoSaleCubit>().submit(),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: primaryColor,
                         foregroundColor: Colors.white,
                         disabledBackgroundColor:
-                            AppColors.primary.withValues(alpha: 0.5),
+                            primaryColor.withValues(alpha: 0.5),
                         shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.mdBorder,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                         ),
                         elevation: 0,
                       ),

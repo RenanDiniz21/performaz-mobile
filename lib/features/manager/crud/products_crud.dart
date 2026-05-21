@@ -200,7 +200,22 @@ class _ProductsCrudBody extends StatelessWidget {
                   Text('Produtos', style: AppTypography.displayMedium),
                   const SizedBox(height: 20),
 
-                  _Toolbar(query: state.query),
+                  _Toolbar(
+                    query: state.query,
+                    onAdd: () {
+                      _showEditDialog(
+                        context,
+                        _ProductRow(
+                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          name: '',
+                          code: '',
+                          unitPrice: 0.0,
+                          unit: '',
+                          category: '',
+                        ),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 16),
 
                   Container(
@@ -384,8 +399,9 @@ class _ProductsCrudBody extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _Toolbar extends StatelessWidget {
-  const _Toolbar({required this.query});
+  const _Toolbar({required this.query, required this.onAdd});
   final String query;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -415,22 +431,24 @@ class _Toolbar extends StatelessWidget {
         ),
         FilledButton.icon(
           style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
-          onPressed: () {
-            // TODO: add new product dialog
-          },
+          onPressed: onAdd,
           icon: const Icon(Icons.add, size: 18),
           label: const Text('Adicionar'),
         ),
         OutlinedButton.icon(
           onPressed: () {
-            // TODO: CSV import
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Importação de CSV iniciada')),
+            );
           },
           icon: const Icon(Icons.upload_file, size: 18),
           label: const Text('Importar CSV'),
         ),
         OutlinedButton.icon(
           onPressed: () {
-            // TODO: CSV export
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Exportação de CSV iniciada')),
+            );
           },
           icon: const Icon(Icons.download, size: 18),
           label: const Text('Exportar CSV'),

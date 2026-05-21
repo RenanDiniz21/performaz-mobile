@@ -5,9 +5,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/di.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/repositories/gamification_repository.dart';
 import '../../shared/models/achievement.dart';
 
 // ---------------------------------------------------------------------------
@@ -46,70 +48,83 @@ class AchievementsState extends Equatable {
 // ---------------------------------------------------------------------------
 
 class AchievementsCubit extends Cubit<AchievementsState> {
-  AchievementsCubit() : super(const AchievementsState());
+  AchievementsCubit({required this.repository})
+      : super(const AchievementsState());
 
-  Future<void> load() async {
+  final GamificationRepository repository;
+
+  // ════════════════════════════════════════════════════════════════════
+  // 🚧 MOCK — dados falsos para apresentação.
+  //    Para integrar com a API real:
+  //    1. Descomente a linha com repository.fetchAchievements(vendorId)
+  //    2. Remova o Future.delayed e o mock achievements
+  //    3. Rode: flutter pub get && dart run build_runner build
+  // ════════════════════════════════════════════════════════════════════
+  Future<void> load(String vendorId) async {
     emit(state.copyWith(isLoading: true));
-
-    // TODO: replace with real repository call
     await Future<void>.delayed(const Duration(milliseconds: 500));
 
-    emit(state.copyWith(
-      isLoading: false,
-      achievements: [
-        Achievement(
-          id: 'a1',
-          type: AchievementType.primeiraVendaDoDia,
-          title: 'Primeira Venda',
-          description: 'Registre sua primeira venda do dia',
-          iconName: 'shopping_cart',
-          xpReward: 100,
-          unlockedAt: DateTime(2026, 4, 10, 9, 30),
-        ),
-        Achievement(
-          id: 'a2',
-          type: AchievementType.dezClientesVisitados,
-          title: '10 Clientes',
-          description: 'Visite 10 clientes em um dia',
-          iconName: 'people',
-          xpReward: 200,
-          unlockedAt: DateTime(2026, 4, 12, 14, 15),
-        ),
-        Achievement(
-          id: 'a3',
-          type: AchievementType.metaSemanalAtingida,
-          title: 'Meta Semanal',
-          description: 'Atinja a meta semanal de vendas',
-          iconName: 'flag',
-          xpReward: 350,
-          unlockedAt: DateTime(2026, 4, 8, 17, 0),
-        ),
-        const Achievement(
-          id: 'a4',
-          type: AchievementType.centuriao,
-          title: 'Centuriao',
-          description: 'Realize 100 vendas',
-          iconName: 'military_tech',
-          xpReward: 500,
-        ),
-        const Achievement(
-          id: 'a5',
-          type: AchievementType.maratonista,
-          title: 'Maratonista',
-          description: '20 visitas em um dia',
-          iconName: 'directions_run',
-          xpReward: 300,
-        ),
-        const Achievement(
-          id: 'a6',
-          type: AchievementType.topSemanal,
-          title: 'Top Semanal',
-          description: 'Seja #1 no ranking semanal',
-          iconName: 'emoji_events',
-          xpReward: 400,
-        ),
-      ],
-    ));
+    // TODO(api): final achievements = await repository.fetchAchievements(vendorId);
+
+    final now = DateTime.now();
+    final achievements = [
+      Achievement(
+        id: 'a1',
+        type: AchievementType.primeiraVendaDoDia,
+        title: 'Primeira Venda',
+        description: 'Registrou seu primeiro pedido',
+        iconName: 'military_tech',
+        xpReward: 100,
+        unlockedAt: now.subtract(const Duration(days: 30)),
+      ),
+      Achievement(
+        id: 'a2',
+        type: AchievementType.dezClientesVisitados,
+        title: 'Sequência de Fogo',
+        description: '10 clientes visitados em um dia',
+        iconName: 'directions_run',
+        xpReward: 250,
+        unlockedAt: now.subtract(const Duration(days: 12)),
+      ),
+      Achievement(
+        id: 'a3',
+        type: AchievementType.centuriao,
+        title: 'Centurião',
+        description: '100 vendas realizadas',
+        iconName: 'emoji_events',
+        xpReward: 500,
+        unlockedAt: now.subtract(const Duration(days: 5)),
+      ),
+      Achievement(
+        id: 'a4',
+        type: AchievementType.maratonista,
+        title: 'Maratonista',
+        description: '20 visitas em um único dia',
+        iconName: 'directions_run',
+        xpReward: 300,
+        unlockedAt: now.subtract(const Duration(days: 2)),
+      ),
+      const Achievement(
+        id: 'a5',
+        type: AchievementType.metaSemanalAtingida,
+        title: 'Mestre das Metas',
+        description: 'Bateu a meta semanal 3x seguidas',
+        iconName: 'military_tech',
+        xpReward: 750,
+        // unlockedAt: null → bloqueada
+      ),
+      const Achievement(
+        id: 'a6',
+        type: AchievementType.topSemanal,
+        title: 'Top 3 Regional',
+        description: 'Ficou entre os 3 primeiros no ranking',
+        iconName: 'emoji_events',
+        xpReward: 1000,
+        // unlockedAt: null → bloqueada
+      ),
+    ];
+
+    emit(state.copyWith(isLoading: false, achievements: achievements));
   }
 
   void clearUnlockAnimation() {
@@ -127,7 +142,9 @@ class AchievementsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => AchievementsCubit()..load(),
+      create: (_) => AchievementsCubit(
+        repository: getIt<GamificationRepository>(),
+      )..load('current'),
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(

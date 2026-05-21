@@ -1,103 +1,104 @@
 import 'package:flutter/material.dart';
 
-class AppColors {
-  AppColors._();
+/// Paleta Performaz — Indigo + Purple
+/// Fonte: FRONTEND.md (globals.css) — conversão OKLCH → sRGB
+abstract final class AppColors {
+  // ── PRIMARY — Indigo ──────────────────────────────────────────────
+  /// oklch(0.58 0.19 265) → azul-indigo médio (light mode)
+  static const primaryLight = Color(0xFF4F62D4);
+  /// oklch(0.68 0.18 265) → indigo claro (dark mode, texto sobre fundo escuro)
+  static const primaryDark  = Color(0xFF7B8FE8);
 
-  // ─── Light mode ───────────────────────────────────────
+  // ── ACCENT — Lilás/Roxo ───────────────────────────────────────────
+  /// oklch(0.95 0.03 295) → lilás muito claro (hover/superfície light)
+  static const accentLight  = Color(0xFFF0EEFF);
+  /// oklch(0.25 0.05 295) → roxo escuro (hover/superfície dark)
+  static const accentDark   = Color(0xFF2A2040);
 
-  // Primary — Purple
-  static const primary = Color(0xFF7C3AED);
+  // ── BACKGROUND ────────────────────────────────────────────────────
+  /// oklch(0.98 0 0) → quase branco
+  static const backgroundLight = Color(0xFFFAFAFA);
+  /// oklch(0.13 0.02 265) → azul-indigo muito escuro
+  static const backgroundDark  = Color(0xFF151520);
 
-  // Backgrounds (cool-tinted)
-  static const background = Color(0xFFF8F7FC);
-  static const card = Color(0xFFFFFFFF);
+  // ── FOREGROUND (texto principal) ──────────────────────────────────
+  /// oklch(0.15 0.02 265) → quase preto azulado
+  static const foregroundLight = Color(0xFF1A1B2E);
+  /// oklch(0.95 0.005 264) → branco levemente azulado
+  static const foregroundDark  = Color(0xFFF0F0F8);
 
-  // Text
-  static const foreground = Color(0xFF1A1625);
-  static const mutedForeground = Color(0xFF6B6780);
+  // ── CARD ──────────────────────────────────────────────────────────
+  /// oklch(1 0 0) → branco puro
+  static const cardLight = Color(0xFFFFFFFF);
+  /// oklch(0.18 0.02 265) → indigo escuro, levemente mais claro que o bg
+  static const cardDark  = Color(0xFF1E1F32);
 
-  // Borders & Surfaces (cool-tinted)
-  static const border = Color(0xFFE4E2EE);
-  static const muted = Color(0xFFF3F2F8);
-  static const accent = Color(0xFFF0EDFF);
+  // ── MUTED (superfícies suaves / texto secundário) ─────────────────
+  static const mutedLight           = Color(0xFFF4F4F8);
+  static const mutedDark            = Color(0xFF252538);
+  static const mutedForegroundLight = Color(0xFF6B7280);
+  static const mutedForegroundDark  = Color(0xFF9A9AB0);
 
-  // Sidebar (dark, purple-tinted)
-  static const sidebar = Color(0xFF1A1628);
-  static const sidebarForeground = Color(0xFFD4D0E8);
-  static const sidebarAccent = Color(0xFF2A2540);
-  static const sidebarBorder = Color(0xFF3D3658);
+  // ── BORDER / DIVIDER ─────────────────────────────────────────────
+  /// oklch(0.88 0.01 265) com alpha 30% → sutil
+  static const borderLight = Color(0x33C5C7E0);
+  /// oklch(1 0 0 / 10%) → borda quase invisível no dark
+  static const borderDark  = Color(0x1AFFFFFF);
 
-  // ─── Dark mode ────────────────────────────────────────
+  // ── SIDEBAR ───────────────────────────────────────────────────────
+  /// oklch(0.14 0.04 275) → indigo near-black (painel de navegação)
+  static const sidebarBg       = Color(0xFF161824);
+  /// oklch(0.20 0.05 275) → hover/active na sidebar
+  static const sidebarAccent   = Color(0xFF20223A);
+  /// oklch(0.24 0.05 275) → border da sidebar
+  static const sidebarBorder   = Color(0xFF282B44);
+  /// oklch(0.88 0.01 275) → texto da sidebar
+  static const sidebarFg       = Color(0xFFDDDEF0);
 
-  static const darkPrimary = Color(0xFFA78BFA);
+  // ── DESTRUCTIVE ───────────────────────────────────────────────────
+  /// oklch(0.577 0.245 27.3) → vermelho semântico (APENAS erros)
+  static const destructive     = Color(0xFFDC2626);
+  static const destructiveDark = Color(0xFFEF4444);
 
-  static const darkBackground = Color(0xFF1A1628);
-  static const darkCard = Color(0xFF241F38);
+  // ── CHARTS ────────────────────────────────────────────────────────
+  /// chart-1 a chart-5: indigo, roxo, azul, verde, âmbar
+  static const chart1 = Color(0xFF4F62D4); // indigo
+  static const chart2 = Color(0xFF8B5CF6); // roxo
+  static const chart3 = Color(0xFF06B6D4); // ciano
+  static const chart4 = Color(0xFF10B981); // verde
+  static const chart5 = Color(0xFFF59E0B); // âmbar/XP
 
-  static const darkForeground = Color(0xFFF0EDF8);
-  static const darkMutedForeground = Color(0xFF9590A8);
+  // ── GAMIFICAÇÃO (XP / Conquistas) ─────────────────────────────────
+  /// Âmbar/gold — usado exclusivamente para XP, conquistas e streaks
+  static const xpGold     = Color(0xFFF59E0B);
+  static const xpGoldDark = Color(0xFFFBBF24);
 
-  static const darkBorder = Color(0xFF342E4A);
-  static const darkMuted = Color(0xFF2A2540);
-  static const darkAccent = Color(0xFF322B4D);
+  // ── STATUS SEMÂNTICOS ─────────────────────────────────────────────
+  static const statusSuccess = Color(0xFF10B981); // verde
+  static const statusWarning = Color(0xFFF59E0B); // âmbar
+  static const statusError   = Color(0xFFEF4444); // vermelho
+  static const statusInfo    = Color(0xFF4F62D4); // indigo (= primary)
 
-  // ─── Shared (same in both modes) ──────────────────────
-
-  // Chart palette (purple-blue spectrum)
-  static const chart1 = Color(0xFF7C3AED);
-  static const chart2 = Color(0xFF3B82F6);
-  static const chart3 = Color(0xFF06B6D4);
-  static const chart4 = Color(0xFFC026D3);
-  static const chart5 = Color(0xFF14B8A6);
-
-  // Dark mode chart palette (brighter for dark backgrounds)
-  static const darkChart1 = Color(0xFFA78BFA);
-  static const darkChart2 = Color(0xFF60A5FA);
-  static const darkChart3 = Color(0xFF22D3EE);
-  static const darkChart4 = Color(0xFFD946EF);
-  static const darkChart5 = Color(0xFF2DD4BF);
-
-  // Priority badge colors
-  static const highBg = Color(0xFFFEE2E2);
-  static const highFg = Color(0xFFDC2626);
-  static const mediumBg = Color(0xFFFEF3C7);
-  static const mediumFg = Color(0xFFD97706);
-  static const lowBg = Color(0xFFDBEAFE);
-  static const lowFg = Color(0xFF2563EB);
-
-  // Dark priority badges
-  static const darkHighBg = Color(0xFF3B1515);
-  static const darkHighFg = Color(0xFFFCA5A5);
-  static const darkMediumBg = Color(0xFF3B2E10);
-  static const darkMediumFg = Color(0xFFFCD34D);
-  static const darkLowBg = Color(0xFF152040);
-  static const darkLowFg = Color(0xFF93C5FD);
-
-  // Status dots
-  static const activeGreen = Color(0xFF10B981);
-  static const inactiveGray = Color(0xFFCBD5E1);
-
-  // Dot grid
-  static const dotGrid = Color(0xFFCDC9DA);
-  static const darkDotGrid = Color(0xFF342E4A);
-
-  // Destructive
-  static const destructive = Color(0xFFEF4444);
-  static const destructiveForeground = Color(0xFFFFFFFF);
-  static const darkDestructive = Color(0xFFF87171);
-
-  // Success
-  static const success = Color(0xFF10B981);
-  static const successBg = Color(0xFFD1FAE5);
-  static const darkSuccessBg = Color(0xFF0D3B2B);
-
-  // ─── Helper: resolve by brightness ────────────────────
-
-  static Color resolve(
-    BuildContext context, {
-    required Color light,
-    required Color dark,
-  }) {
-    return Theme.of(context).brightness == Brightness.dark ? dark : light;
-  }
+  // ── ALIASES DE COMPATIBILIDADE (dark-mode defaults) ───────────────
+  // Esses aliases existem para manter retrocompatibilidade com telas
+  // que ainda não foram migradas para o padrão theme-aware.
+  static const primary        = primaryDark;
+  static const background     = backgroundDark;
+  static const foreground     = foregroundDark;
+  static const card           = cardDark;
+  static const muted          = mutedDark;
+  static const mutedForeground = mutedForegroundDark;
+  static const border         = borderDark;
+  static const accent         = accentDark;
+  static const success        = statusSuccess;
+  static const highBg         = Color(0x26EF4444); // destructive 15%
+  static const highFg         = statusError;
+  static const successBg      = Color(0x2610B981); // success 15%
+  static const activeGreen    = statusSuccess;
+  static const sidebar        = sidebarBg;
+  static const mediumBg       = Color(0x26F59E0B); // warning 15%
+  static const mediumFg       = statusWarning;
+  static const lowBg          = Color(0x2610B981); // success 15%
+  static const lowFg          = statusSuccess;
+  static const inactiveGray   = Color(0xFF6B7280); // gray-500
 }

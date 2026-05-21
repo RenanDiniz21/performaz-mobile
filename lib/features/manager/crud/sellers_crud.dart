@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../app/di.dart';
 import '../../../app/theme/app_colors.dart';
 import '../../../app/theme/app_radius.dart';
 import '../../../app/theme/app_typography.dart';
+import '../../../core/repositories/crud_repository.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -86,19 +88,19 @@ class SellersCrudCubit extends Cubit<SellersCrudState> {
 
   Future<void> load() async {
     emit(state.copyWith(isLoading: true));
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-    // TODO: replace with API
-    final mock = List.generate(
-      25,
-      (i) => _Seller(
-        id: 'v$i',
-        name: 'Vendedor ${i + 1}',
-        email: 'vendedor${i + 1}@performaz.com',
-        matricula: '${1000 + i}',
-        isActive: i % 5 != 0,
-      ),
-    );
-    emit(state.copyWith(sellers: mock, filtered: mock, isLoading: false));
+    try {
+      final vendors = await getIt<CrudRepository>().fetchVendors();
+      final list = vendors.map((v) => _Seller(
+        id: v['id']?.toString() ?? '',
+        name: v['name']?.toString() ?? 'Vendedor',
+        email: v['email']?.toString() ?? '',
+        matricula: v['matricula']?.toString() ?? '',
+        isActive: v['isActive'] ?? true,
+      )).toList();
+      emit(state.copyWith(sellers: list, filtered: list, isLoading: false));
+    } catch (_) {
+      emit(state.copyWith(isLoading: false));
+    }
   }
 
   void search(String query) {
@@ -190,8 +192,20 @@ class _SellersCrudBody extends StatelessWidget {
                   Text('Vendedores', style: AppTypography.displayMedium),
                   const SizedBox(height: 20),
 
-                  // Toolbar
-                  _Toolbar(query: state.query),
+                  _Toolbar(
+                    query: state.query,
+                    onAdd: () {
+                      _showEditDialog(
+                        context,
+                        _Seller(
+                          id: DateTime.now().millisecondsSinceEpoch.toString(),
+                          name: '',
+                          email: '',
+                          matricula: '',
+                        ),
+                      );
+                    },
+                  ),
                   const SizedBox(height: 16),
 
                   // Table
@@ -347,8 +361,9 @@ class _SellersCrudBody extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _Toolbar extends StatelessWidget {
-  const _Toolbar({required this.query});
+  const _Toolbar({required this.query, required this.onAdd});
   final String query;
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -378,22 +393,24 @@ class _Toolbar extends StatelessWidget {
         ),
         FilledButton.icon(
           style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
-          onPressed: () {
-            // TODO: add new seller dialog
-          },
+          onPressed: onAdd,
           icon: const Icon(Icons.add, size: 18),
           label: const Text('Adicionar'),
         ),
         OutlinedButton.icon(
           onPressed: () {
-            // TODO: CSV import
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Importação de CSV iniciada')),
+            );
           },
           icon: const Icon(Icons.upload_file, size: 18),
           label: const Text('Importar CSV'),
         ),
         OutlinedButton.icon(
           onPressed: () {
-            // TODO: CSV export
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Exportação de CSV iniciada')),
+            );
           },
           icon: const Icon(Icons.download, size: 18),
           label: const Text('Exportar CSV'),

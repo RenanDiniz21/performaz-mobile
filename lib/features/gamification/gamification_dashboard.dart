@@ -2,9 +2,12 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../app/di.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/auth/auth_bloc.dart';
+import '../../core/repositories/gamification_repository.dart';
 import '../../shared/models/achievement.dart';
 import '../../shared/models/user.dart';
 import '../../shared/widgets/stat_card.dart';
@@ -16,6 +19,7 @@ import '../../shared/widgets/stat_card.dart';
 class GamificationDashboardState extends Equatable {
   const GamificationDashboardState({
     this.user,
+    this.error,
     this.currentXp = 0,
     this.nextLevelXp = 1000,
     this.dailyScore = 0,
@@ -37,6 +41,7 @@ class GamificationDashboardState extends Equatable {
   final List<Achievement> nextAchievements;
   final List<XpEvent> recentXpEvents;
   final bool isLoading;
+  final String? error;
 
   double get xpProgress =>
       nextLevelXp > 0 ? (currentXp / nextLevelXp).clamp(0.0, 1.0) : 0;
@@ -52,6 +57,7 @@ class GamificationDashboardState extends Equatable {
     List<Achievement>? nextAchievements,
     List<XpEvent>? recentXpEvents,
     bool? isLoading,
+    String? error,
   }) {
     return GamificationDashboardState(
       user: user ?? this.user,
@@ -64,6 +70,7 @@ class GamificationDashboardState extends Equatable {
       nextAchievements: nextAchievements ?? this.nextAchievements,
       recentXpEvents: recentXpEvents ?? this.recentXpEvents,
       isLoading: isLoading ?? this.isLoading,
+      error: error,
     );
   }
 
@@ -79,6 +86,7 @@ class GamificationDashboardState extends Equatable {
         nextAchievements,
         recentXpEvents,
         isLoading,
+        error,
       ];
 }
 
@@ -87,88 +95,103 @@ class GamificationDashboardState extends Equatable {
 // ---------------------------------------------------------------------------
 
 class GamificationDashboardCubit extends Cubit<GamificationDashboardState> {
-  GamificationDashboardCubit() : super(const GamificationDashboardState());
+  GamificationDashboardCubit({required this.repository})
+      : super(const GamificationDashboardState());
 
-  Future<void> load() async {
-    emit(state.copyWith(isLoading: true));
+  final GamificationRepository repository;
 
-    // TODO: replace with real repository call
+  // ════════════════════════════════════════════════════════════════════
+  // 🚧 MOCK — dados falsos para apresentação.
+  //    Para integrar com a API real:
+  //    1. Descomente a linha com repository.fetchVendorStats(vendorId)
+  //    2. Remova o Future.delayed e os _buildMock*()
+  //    3. Rode: flutter pub get && dart run build_runner build
+  // ════════════════════════════════════════════════════════════════════
+  Future<void> load(String vendorId) async {
+    emit(state.copyWith(isLoading: true, error: null));
     await Future<void>.delayed(const Duration(milliseconds: 600));
+
+    // TODO(api): final stats = await repository.fetchVendorStats(vendorId);
+
+    final user = const User(
+      id: 'fake_id_123',
+      name: 'Usuário Teste',
+      email: 'teste@performaz.com',
+      role: UserRole.vendedor,
+      level: 12,
+    );
+
+    final achievements = const [
+      Achievement(
+        id: 'a1',
+        type: AchievementType.primeiraVendaDoDia,
+        title: 'Primeira Venda',
+        description: 'Registrou seu primeiro pedido',
+        iconName: 'military_tech',
+        xpReward: 50,
+      ),
+      Achievement(
+        id: 'a2',
+        type: AchievementType.dezClientesVisitados,
+        title: 'Visitas Rápidas',
+        description: '10 clientes visitados em um dia',
+        iconName: 'directions_run',
+        xpReward: 100,
+      ),
+      Achievement(
+        id: 'a3',
+        type: AchievementType.metaSemanalAtingida,
+        title: 'Meta Batida',
+        description: 'Atingiu a meta semanal de vendas',
+        iconName: 'emoji_events',
+        xpReward: 500,
+      ),
+    ];
+
+    final xpEvents = [
+      XpEvent(
+        id: 'e1',
+        description: 'Pedido confirmado — Supermercado Paulistão',
+        xpAmount: 50,
+        createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
+      ),
+      XpEvent(
+        id: 'e2',
+        description: 'Check-in realizado — Padaria Dona Maria',
+        xpAmount: 10,
+        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+      ),
+      XpEvent(
+        id: 'e3',
+        description: 'Meta diária atingida!',
+        xpAmount: 100,
+        createdAt: DateTime.now().subtract(const Duration(hours: 5)),
+      ),
+      XpEvent(
+        id: 'e4',
+        description: 'Pedido confirmado — Distribuidora Central',
+        xpAmount: 50,
+        createdAt: DateTime.now().subtract(const Duration(days: 1)),
+      ),
+      XpEvent(
+        id: 'e5',
+        description: 'Check-in realizado — Mercado Bom Preço',
+        xpAmount: 10,
+        createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 3)),
+      ),
+    ];
 
     emit(state.copyWith(
       isLoading: false,
-      user: const User(
-        id: '1',
-        name: 'Carlos Silva',
-        email: 'carlos@performaz.com',
-        role: UserRole.vendedor,
-        level: 7,
-        xp: 3420,
-      ),
-      currentXp: 3420,
+      user: user,
+      currentXp: 4750,
       nextLevelXp: 5000,
-      dailyScore: 245,
-      weeklyScore: 1830,
-      dailyTrend: '+18% vs ontem',
-      weeklyTrend: '+12% vs semana anterior',
-      nextAchievements: const [
-        Achievement(
-          id: 'a1',
-          type: AchievementType.centuriao,
-          title: 'Centuriao',
-          description: 'Realize 100 vendas',
-          iconName: 'military_tech',
-          xpReward: 500,
-        ),
-        Achievement(
-          id: 'a2',
-          type: AchievementType.maratonista,
-          title: 'Maratonista',
-          description: '20 visitas em um dia',
-          iconName: 'directions_run',
-          xpReward: 300,
-        ),
-        Achievement(
-          id: 'a3',
-          type: AchievementType.topSemanal,
-          title: 'Top Semanal',
-          description: 'Seja #1 da semana',
-          iconName: 'emoji_events',
-          xpReward: 400,
-        ),
-      ],
-      recentXpEvents: [
-        XpEvent(
-          id: 'e1',
-          description: 'Venda registrada — Cliente ABC',
-          xpAmount: 50,
-          createdAt: DateTime.now().subtract(const Duration(minutes: 12)),
-        ),
-        XpEvent(
-          id: 'e2',
-          description: 'Visita concluida',
-          xpAmount: 20,
-          createdAt: DateTime.now().subtract(const Duration(minutes: 45)),
-        ),
-        XpEvent(
-          id: 'e3',
-          description: 'Conquista desbloqueada',
-          xpAmount: 200,
-          createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-        ),
-        XpEvent(
-          id: 'e4',
-          description: 'Pedido entregue',
-          xpAmount: 30,
-          createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-        ),
-        XpEvent(
-          id: 'e5',
-          description: 'Check-in matinal',
-          xpAmount: 10,
-          createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-        ),
-      ],
+      dailyScore: 120,
+      weeklyScore: 450,
+      dailyTrend: '+12%',
+      weeklyTrend: '+5%',
+      nextAchievements: achievements,
+      recentXpEvents: xpEvents,
     ));
   }
 }
@@ -180,14 +203,31 @@ class GamificationDashboardCubit extends Cubit<GamificationDashboardState> {
 class GamificationDashboard extends StatelessWidget {
   const GamificationDashboard({super.key});
 
+  String _friendlyError(String? raw) {
+    if (raw == null) return 'Erro desconhecido';
+    if (raw.contains('connection timeout') || raw.contains('SocketException')) {
+      return 'Sem conexão com o servidor.\nVerifique se a API está rodando.';
+    }
+    if (raw.contains('404')) return 'Recurso não encontrado.';
+    if (raw.contains('401') || raw.contains('403')) return 'Sessão expirada. Faça login novamente.';
+    if (raw.contains('500')) return 'Erro interno do servidor.';
+    return 'Ocorreu um erro. Tente novamente.';
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Resolve vendorId from auth
+    final authState = context.read<AuthBloc>().state;
+    final vendorId = authState is AuthAuthenticated ? authState.user.id : 'current';
+
     return BlocProvider(
-      create: (_) => GamificationDashboardCubit()..load(),
+      create: (_) => GamificationDashboardCubit(
+        repository: getIt<GamificationRepository>(),
+      )..load(vendorId),
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: Text('Gamificacao', style: AppTypography.displaySmall),
+          title: Text('Gamificação', style: AppTypography.displaySmall),
           backgroundColor: AppColors.background,
           elevation: 0,
           scrolledUnderElevation: 0,
@@ -195,16 +235,36 @@ class GamificationDashboard extends StatelessWidget {
         body: BlocBuilder<GamificationDashboardCubit,
             GamificationDashboardState>(
           builder: (context, state) {
-            if (state.isLoading) {
-              return const Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
+            // Skeleton loading
+            if (state.isLoading && state.user == null) {
+              return _buildSkeleton();
+            }
+
+            // Error state with retry
+            if (state.error != null && state.user == null) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: AppColors.statusError),
+                    const SizedBox(height: 12),
+                    Text(_friendlyError(state.error),
+                        style: AppTypography.bodyMedium,
+                        textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => context.read<GamificationDashboardCubit>().load(vendorId),
+                      child: const Text('Tentar novamente'),
+                    ),
+                  ],
+                ),
               );
             }
 
             return RefreshIndicator(
               color: AppColors.primary,
-              onRefresh: () =>
-                  context.read<GamificationDashboardCubit>().load(),
+              onRefresh: () => context.read<GamificationDashboardCubit>().load(vendorId),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 children: [
@@ -231,6 +291,39 @@ class GamificationDashboard extends StatelessWidget {
           },
         ),
       ),
+    );
+  }
+
+  Widget _buildSkeleton() {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+      children: [
+        // Level badge skeleton
+        Container(
+          height: 200,
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: AppRadius.xlBorder,
+            border: Border.all(color: AppColors.border),
+          ),
+          child: const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
+        ),
+        const SizedBox(height: 24),
+        // Score cards skeleton
+        Row(
+          children: [
+            Expanded(child: _SkeletonBox(height: 90)),
+            const SizedBox(width: 12),
+            Expanded(child: _SkeletonBox(height: 90)),
+          ],
+        ),
+        const SizedBox(height: 24),
+        _SkeletonBox(height: 140),
+        const SizedBox(height: 24),
+        _SkeletonBox(height: 200),
+      ],
     );
   }
 }
@@ -589,6 +682,27 @@ class _RecentActivity extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Skeleton placeholder box
+// ---------------------------------------------------------------------------
+
+class _SkeletonBox extends StatelessWidget {
+  const _SkeletonBox({required this.height});
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: AppRadius.lgBorder,
+        border: Border.all(color: AppColors.border),
+      ),
     );
   }
 }

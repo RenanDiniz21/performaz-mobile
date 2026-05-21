@@ -22,20 +22,22 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: cs.surface,
-        borderRadius: AppRadius.lgBorder,
-        border: Border.all(color: cs.outline),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: isDark ? AppColors.cardDark : AppColors.cardLight,
+        borderRadius: BorderRadius.circular(AppRadius.xl),
+        border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,20 +45,24 @@ class StatCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(label, style: AppTypography.label),
+              Text(label, style: AppTypography.body(12, weight: FontWeight.w500)),
               if (icon != null)
-                Icon(icon, size: 18, color: cs.onSurface.withValues(alpha: 0.5)),
+                Icon(icon, size: 18, color: isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight),
             ],
           ),
           const SizedBox(height: 8),
-          Text(value, style: AppTypography.statNumber),
+          Text(
+            value,
+            style: AppTypography.metric(28).copyWith(
+              color: isDark ? AppColors.primaryDark : AppColors.primaryLight,
+            ),
+          ),
           if (trend != null) ...[
             const SizedBox(height: 4),
             Text(
               trend!,
-              style: AppTypography.bodySmall.copyWith(
-                color: trendPositive ? AppColors.success : AppColors.destructive,
-                fontWeight: FontWeight.w500,
+              style: AppTypography.body(12, weight: FontWeight.w500).copyWith(
+                color: trendPositive ? AppColors.statusSuccess : AppColors.statusError,
               ),
             ),
           ],

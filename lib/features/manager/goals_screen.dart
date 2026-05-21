@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/di.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/repositories/manager_repository.dart';
 
 // ---------------------------------------------------------------------------
 // Models
@@ -70,49 +72,59 @@ class GoalsState {
 // ---------------------------------------------------------------------------
 
 class GoalsCubit extends Cubit<GoalsState> {
-  GoalsCubit() : super(const GoalsState());
+  GoalsCubit({required this.repository}) : super(const GoalsState());
+
+  final ManagerRepository repository;
 
   static final _currencyFormat =
       NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
+  // ════════════════════════════════════════════════════════════════════
+  // 🚧 MOCK — dados falsos para apresentação.
+  //    Para integrar com a API real:
+  //    1. Descomente a linha com repository.fetchGoals()
+  //    2. Remova o Future.delayed e os dados mock
+  //    3. Rode: flutter pub get && dart run build_runner build
+  // ════════════════════════════════════════════════════════════════════
   Future<void> load() async {
     emit(state.copyWith(isLoading: true));
     await Future<void>.delayed(const Duration(milliseconds: 400));
 
-    final mock = List.generate(8, (i) {
-      return _SellerGoal(
-        sellerId: 's$i',
-        sellerName: 'Vendedor ${i + 1}',
-        revenueTarget: 10000 + (i * 2000),
-        revenueCurrent: 4000 + (i * 1500),
-        positivacaoTarget: 20 + i * 3,
-        positivacaoCurrent: 8 + i * 2,
-      );
-    });
+    // TODO(api): final data = await repository.fetchGoals();
 
-    emit(state.copyWith(goals: mock, isLoading: false));
+    final goals = [
+      _SellerGoal(sellerId: 'v1', sellerName: 'Carlos Mendes', revenueTarget: 25000, revenueCurrent: 18200, positivacaoTarget: 30, positivacaoCurrent: 22),
+      _SellerGoal(sellerId: 'v2', sellerName: 'Ana Rodrigues', revenueTarget: 25000, revenueCurrent: 21500, positivacaoTarget: 30, positivacaoCurrent: 28),
+      _SellerGoal(sellerId: 'v3', sellerName: 'Usuário Teste', revenueTarget: 20000, revenueCurrent: 14800, positivacaoTarget: 25, positivacaoCurrent: 18),
+      _SellerGoal(sellerId: 'v4', sellerName: 'Juliana Costa', revenueTarget: 22000, revenueCurrent: 16000, positivacaoTarget: 28, positivacaoCurrent: 20),
+      _SellerGoal(sellerId: 'v5', sellerName: 'Roberto Alves', revenueTarget: 18000, revenueCurrent: 15500, positivacaoTarget: 20, positivacaoCurrent: 17),
+    ];
+
+    emit(state.copyWith(goals: goals, isLoading: false));
   }
 
   void setPeriod(GoalPeriod period) {
     emit(state.copyWith(period: period));
-    // TODO: reload goals for selected period
+    load();
   }
 
-  void updateRevenueTarget(String sellerId, double target) {
+  Future<void> updateRevenueTarget(String sellerId, double target) async {
     final goals = List<_SellerGoal>.from(state.goals);
     final idx = goals.indexWhere((g) => g.sellerId == sellerId);
     if (idx >= 0) {
       goals[idx].revenueTarget = target;
       emit(state.copyWith(goals: goals));
+      // TODO(api): await repository.updateGoal(sellerId, {'revenueTarget': target});
     }
   }
 
-  void updatePositivacaoTarget(String sellerId, int target) {
+  Future<void> updatePositivacaoTarget(String sellerId, int target) async {
     final goals = List<_SellerGoal>.from(state.goals);
     final idx = goals.indexWhere((g) => g.sellerId == sellerId);
     if (idx >= 0) {
       goals[idx].positivacaoTarget = target;
       emit(state.copyWith(goals: goals));
+      // TODO(api): await repository.updateGoal(sellerId, {'positivacaoTarget': target});
     }
   }
 
@@ -129,7 +141,9 @@ class GoalsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => GoalsCubit()..load(),
+      create: (_) => GoalsCubit(
+        repository: getIt<ManagerRepository>(),
+      )..load(),
       child: const _GoalsBody(),
     );
   }

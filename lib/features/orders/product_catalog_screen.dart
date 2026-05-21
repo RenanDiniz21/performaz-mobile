@@ -8,6 +8,8 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
 import '../../shared/models/product.dart';
+import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/dot_grid_background.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -146,100 +148,98 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+    final mutedFg = isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight;
+
     return Scaffold(
+      backgroundColor: bgColor,
       appBar: AppBar(
-        title: Text('Produtos', style: AppTypography.displaySmall),
+        title: Text('Produtos', style: AppTypography.title(20)),
         centerTitle: false,
       ),
-      body: BlocBuilder<ProductCatalogCubit, ProductCatalogState>(
-        builder: (context, state) {
-          return Column(
-            children: [
-              // Search
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: _onSearchChanged,
-                  style: AppTypography.bodyMedium,
-                  decoration: InputDecoration(
-                    hintText: 'Buscar produto...',
-                    prefixIcon: Icon(Icons.search,
-                        color: cs.onSurface.withValues(alpha: 0.5)),
-                  ),
-                ),
-              ),
-
-              // Category chips
-              if (state.categories.isNotEmpty)
-                SizedBox(
-                  height: 44,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: state.categories.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final cat = state.categories[index];
-                      final isSelected = cat == state.selectedCategory;
-                      return FilterChip(
-                        label: Text(cat),
-                        selected: isSelected,
-                        onSelected: (_) => context
-                            .read<ProductCatalogCubit>()
-                            .selectCategory(cat),
-                        backgroundColor: cs.surface,
-                        selectedColor: cs.primary.withValues(alpha: 0.12),
-                        side: BorderSide(
-                          color: isSelected ? cs.primary : cs.outline,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: AppRadius.smBorder,
-                        ),
-                        labelStyle: AppTypography.bodySmall.copyWith(
-                          color: isSelected ? cs.primary : cs.onSurface,
-                          fontWeight:
-                              isSelected ? FontWeight.w600 : FontWeight.w400,
-                        ),
-                        showCheckmark: false,
-                      );
-                    },
+      body: DotGridBackground(
+        child: BlocBuilder<ProductCatalogCubit, ProductCatalogState>(
+          builder: (context, state) {
+            return Column(
+              children: [
+                // Search
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: _onSearchChanged,
+                    style: AppTypography.body(14),
+                    decoration: InputDecoration(
+                      hintText: 'Buscar produto...',
+                      prefixIcon: Icon(Icons.search, color: mutedFg),
+                    ),
                   ),
                 ),
 
-              const SizedBox(height: 8),
+                // Category chips
+                if (state.categories.isNotEmpty)
+                  SizedBox(
+                    height: 44,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: state.categories.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 8),
+                      itemBuilder: (context, index) {
+                        final cat = state.categories[index];
+                        final isSelected = cat == state.selectedCategory;
+                        return FilterChip(
+                          label: Text(cat),
+                          selected: isSelected,
+                          onSelected: (_) => context
+                              .read<ProductCatalogCubit>()
+                              .selectCategory(cat),
+                          showCheckmark: false,
+                        );
+                      },
+                    ),
+                  ),
 
-              // Product list
-              Expanded(
-                child: state.filteredProducts.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Nenhum produto encontrado',
-                          style: AppTypography.bodyMedium
-                              .copyWith(color: cs.onSurface.withValues(alpha: 0.5)),
+                const SizedBox(height: 8),
+
+                // Product list
+                Expanded(
+                  child: state.filteredProducts.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.inventory_2_outlined, size: 64, color: mutedFg.withValues(alpha: 0.4)),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Nenhum produto encontrado',
+                                style: AppTypography.body(16).copyWith(color: mutedFg),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          itemCount: state.filteredProducts.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final product = state.filteredProducts[index];
+                            return _ProductTile(
+                              product: product,
+                              onTap: () =>
+                                  widget.onProductSelected(product),
+                              formatPrice: _formatPrice,
+                            );
+                          },
                         ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        itemCount: state.filteredProducts.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final product = state.filteredProducts[index];
-                          return _ProductTile(
-                            product: product,
-                            onTap: () =>
-                                widget.onProductSelected(product),
-                            formatPrice: _formatPrice,
-                          );
-                        },
-                      ),
-              ),
-            ],
-          );
-        },
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -262,57 +262,50 @@ class _ProductTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    return Material(
-      color: cs.surface,
-      borderRadius: AppRadius.lgBorder,
-      child: InkWell(
-        borderRadius: AppRadius.lgBorder,
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: AppRadius.lgBorder,
-            border: Border.all(color: cs.outline),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      product.name,
-                      style: AppTypography.bodyLarge
-                          .copyWith(fontWeight: FontWeight.w600),
-                    ),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final fgColor = isDark ? AppColors.foregroundDark : AppColors.foregroundLight;
+    final mutedFg = isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight;
+    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primaryLight;
+    final mutedBg = isDark ? AppColors.mutedDark : AppColors.mutedLight;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AppCard(
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    product.name,
+                    style: AppTypography.body(15, weight: FontWeight.w600).copyWith(color: fgColor),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${formatPrice(product.unitPrice)} / ${product.unitOfMeasure}',
+                    style: AppTypography.body(13).copyWith(color: mutedFg),
+                  ),
+                  if (product.category != null) ...[
                     const SizedBox(height: 4),
-                    Text(
-                      '${formatPrice(product.unitPrice)} / ${product.unitOfMeasure}',
-                      style: AppTypography.bodySmall
-                          .copyWith(color: cs.onSurface.withValues(alpha: 0.5)),
-                    ),
-                    if (product.category != null) ...[
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: cs.onSurface.withValues(alpha: 0.06),
-                          borderRadius: AppRadius.smBorder,
-                        ),
-                        child: Text(
-                          product.category!,
-                          style: AppTypography.label,
-                        ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: mutedBg,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
-                    ],
+                      child: Text(
+                        product.category!,
+                        style: AppTypography.body(12, weight: FontWeight.w500).copyWith(color: mutedFg),
+                      ),
+                    ),
                   ],
-                ),
+                ],
               ),
-              Icon(Icons.add_circle_outline, color: cs.primary, size: 28),
-            ],
-          ),
+            ),
+            Icon(Icons.add_circle_outline, color: primaryColor, size: 28),
+          ],
         ),
       ),
     );

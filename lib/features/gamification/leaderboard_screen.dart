@@ -2,9 +2,11 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../app/di.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/repositories/gamification_repository.dart';
 import '../../shared/widgets/filter_pills.dart';
 
 // ---------------------------------------------------------------------------
@@ -79,76 +81,35 @@ class LeaderboardState extends Equatable {
 // ---------------------------------------------------------------------------
 
 class LeaderboardCubit extends Cubit<LeaderboardState> {
-  LeaderboardCubit() : super(const LeaderboardState());
+  LeaderboardCubit({required this.repository})
+      : super(const LeaderboardState());
 
+  final GamificationRepository repository;
+
+  // ════════════════════════════════════════════════════════════════════
+  // 🚧 MOCK — dados falsos para apresentação.
+  //    Para integrar com a API real:
+  //    1. Descomente a linha com repository.fetchLeaderboard(...)
+  //    2. Remova o Future.delayed e o mock entries
+  //    3. Rode: flutter pub get && dart run build_runner build
+  // ════════════════════════════════════════════════════════════════════
   Future<void> load() async {
     emit(state.copyWith(isLoading: true));
-
-    // TODO: replace with real repository call
     await Future<void>.delayed(const Duration(milliseconds: 500));
 
-    emit(state.copyWith(
-      isLoading: false,
-      entries: const [
-        LeaderboardEntry(
-          userId: '1',
-          name: 'Ana Souza',
-          rank: 1,
-          xp: 5820,
-          revenue: 48500,
-        ),
-        LeaderboardEntry(
-          userId: '2',
-          name: 'Carlos Silva',
-          rank: 2,
-          xp: 4930,
-          revenue: 42100,
-          isCurrentUser: true,
-        ),
-        LeaderboardEntry(
-          userId: '3',
-          name: 'Marcos Lima',
-          rank: 3,
-          xp: 4210,
-          revenue: 38900,
-        ),
-        LeaderboardEntry(
-          userId: '4',
-          name: 'Julia Santos',
-          rank: 4,
-          xp: 3890,
-          revenue: 35200,
-        ),
-        LeaderboardEntry(
-          userId: '5',
-          name: 'Pedro Costa',
-          rank: 5,
-          xp: 3540,
-          revenue: 31800,
-        ),
-        LeaderboardEntry(
-          userId: '6',
-          name: 'Fernanda Alves',
-          rank: 6,
-          xp: 3120,
-          revenue: 28400,
-        ),
-        LeaderboardEntry(
-          userId: '7',
-          name: 'Roberto Dias',
-          rank: 7,
-          xp: 2870,
-          revenue: 25100,
-        ),
-        LeaderboardEntry(
-          userId: '8',
-          name: 'Camila Rocha',
-          rank: 8,
-          xp: 2540,
-          revenue: 22700,
-        ),
-      ],
-    ));
+    // TODO(api): final data = await repository.fetchLeaderboard(metric: state.metric.name, period: state.period.name);
+
+    final entries = const [
+      LeaderboardEntry(userId: 'v1', name: 'Carlos Mendes', rank: 1, xp: 9200, revenue: 58000),
+      LeaderboardEntry(userId: 'v2', name: 'Ana Rodrigues', rank: 2, xp: 7850, revenue: 45000),
+      LeaderboardEntry(userId: 'fake_id_123', name: 'Usuário Teste', rank: 3, xp: 4750, revenue: 42000, isCurrentUser: true),
+      LeaderboardEntry(userId: 'v4', name: 'Juliana Costa', rank: 4, xp: 4100, revenue: 38000),
+      LeaderboardEntry(userId: 'v5', name: 'Roberto Alves', rank: 5, xp: 3750, revenue: 31000),
+      LeaderboardEntry(userId: 'v6', name: 'Fernanda Lima', rank: 6, xp: 3400, revenue: 28000),
+      LeaderboardEntry(userId: 'v7', name: 'Marcos Souza', rank: 7, xp: 2900, revenue: 22000),
+      LeaderboardEntry(userId: 'v8', name: 'Patricia Nunes', rank: 8, xp: 2600, revenue: 18000),
+    ];
+    emit(state.copyWith(isLoading: false, entries: entries));
   }
 
   void setPeriod(LeaderboardPeriod period) {
@@ -158,6 +119,7 @@ class LeaderboardCubit extends Cubit<LeaderboardState> {
 
   void setMetric(LeaderboardMetric metric) {
     emit(state.copyWith(metric: metric));
+    load();
   }
 }
 
@@ -171,7 +133,9 @@ class LeaderboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => LeaderboardCubit()..load(),
+      create: (_) => LeaderboardCubit(
+        repository: getIt<GamificationRepository>(),
+      )..load(),
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(

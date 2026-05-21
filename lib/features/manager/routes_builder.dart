@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/di.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/network/api_client.dart';
 
 // ---------------------------------------------------------------------------
 // Models
@@ -70,6 +72,13 @@ class RoutesBuilderState {
 class RoutesBuilderCubit extends Cubit<RoutesBuilderState> {
   RoutesBuilderCubit() : super(const RoutesBuilderState());
 
+  // ════════════════════════════════════════════════════════════════════
+  // 🚧 MOCK — dados falsos para apresentação.
+  //    Para integrar com a API real:
+  //    1. Descomente as linhas com getIt<ApiClient>().get(...)
+  //    2. Remova o Future.delayed e os dados mock
+  //    3. Rode: flutter pub get && dart run build_runner build
+  // ════════════════════════════════════════════════════════════════════
   Future<void> load() async {
     emit(state.copyWith(isLoading: true));
     await Future<void>.delayed(const Duration(milliseconds: 400));
@@ -78,9 +87,14 @@ class RoutesBuilderCubit extends Cubit<RoutesBuilderState> {
       6,
       (i) => _SellerItem('s$i', 'Vendedor ${i + 1}'),
     );
+
     final clients = List.generate(
       20,
-      (i) => _ClientItem('c$i', 'Cliente ${i + 1}', 'Rua ${i + 1}, ${100 + i}'),
+      (i) => _ClientItem(
+        'c$i',
+        'Cliente ${i + 1}',
+        'Rua Fictícia, ${i * 10}',
+      ),
     );
 
     emit(state.copyWith(
@@ -150,7 +164,19 @@ class RoutesBuilderCubit extends Cubit<RoutesBuilderState> {
   }
 
   Future<void> save() async {
-    // TODO: persist route assignments via API
+    emit(state.copyWith(isLoading: true));
+    try {
+      final data = state.assignments.map((sellerId, clients) {
+        return MapEntry(sellerId, clients.map((c) => c.id).toList());
+      });
+      await getIt<ApiClient>().post('/routes', data: {
+        'date': state.routeDate?.toIso8601String(),
+        'assignments': data,
+      });
+      emit(state.copyWith(isLoading: false));
+    } catch (_) {
+      emit(state.copyWith(isLoading: false));
+    }
   }
 }
 
@@ -339,7 +365,7 @@ class _SellerListPanel extends StatelessWidget {
           Expanded(
             child: ListView.separated(
               itemCount: sellers.length,
-              separatorBuilder: (_, __) =>
+              separatorBuilder: (_, _) =>
                   const Divider(height: 1, color: AppColors.border),
               itemBuilder: (context, i) {
                 final s = sellers[i];
@@ -439,7 +465,7 @@ class _AssignmentPanel extends StatelessWidget {
                         : ListView.separated(
                             padding: const EdgeInsets.all(8),
                             itemCount: assigned.length,
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (_, _) =>
                                 const SizedBox(height: 4),
                             itemBuilder: (context, i) {
                               final c = assigned[i];
@@ -476,7 +502,7 @@ class _AssignmentPanel extends StatelessWidget {
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               itemCount: state.unassignedClients.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 4),
+              separatorBuilder: (_, _) => const SizedBox(height: 4),
               itemBuilder: (context, i) {
                 final c = state.unassignedClients[i];
                 return Draggable<String>(
@@ -537,7 +563,7 @@ class _ClientTile extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );

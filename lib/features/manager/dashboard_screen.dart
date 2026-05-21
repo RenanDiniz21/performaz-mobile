@@ -2,9 +2,11 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../app/di.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/repositories/manager_repository.dart';
 import '../../shared/widgets/stat_card.dart';
 
 // ---------------------------------------------------------------------------
@@ -58,25 +60,38 @@ class DashboardState {
 }
 
 class DashboardCubit extends Cubit<DashboardState> {
-  DashboardCubit() : super(const DashboardState());
+  DashboardCubit({required this.repository})
+      : super(const DashboardState());
 
+  final ManagerRepository repository;
+
+  // ════════════════════════════════════════════════════════════════════
+  // 🚧 MOCK — dados falsos para apresentação.
+  //    Para integrar com a API real:
+  //    1. Descomente as linhas com repository.fetchKpis() e fetchDailyRevenue()
+  //    2. Remova o Future.delayed e os dados mock
+  //    3. Rode: flutter pub get && dart run build_runner build
+  // ════════════════════════════════════════════════════════════════════
   Future<void> load() async {
     emit(state.copyWith(isLoading: true));
-    // TODO: replace with real API call
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+
+    // TODO(api): final kpis = await repository.fetchKpis();
+    // TODO(api): final revenueData = await repository.fetchDailyRevenue(days: 7);
+
     emit(state.copyWith(
       activeSellers: 12,
-      dailyRevenue: 18540.0,
-      teamGoalPercent: 73.5,
-      ordersToday: 34,
+      dailyRevenue: 18450.0,
+      teamGoalPercent: 0.73,
+      ordersToday: 28,
       topSellers: const [
-        _SellerRank('Carlos Silva', 4320),
-        _SellerRank('Ana Ferreira', 3890),
-        _SellerRank('Pedro Souza', 3210),
-        _SellerRank('Julia Lima', 2980),
-        _SellerRank('Rafael Costa', 2140),
+        _SellerRank('Carlos Mendes', 5800),
+        _SellerRank('Ana Rodrigues', 4500),
+        _SellerRank('Usuário Teste', 4200),
+        _SellerRank('Juliana Costa', 3800),
+        _SellerRank('Roberto Alves', 3100),
       ],
-      weeklyRevenue: const [12400, 15300, 13200, 18500, 16700, 19200, 18540],
+      weeklyRevenue: const [12000, 15000, 11000, 18000, 16500, 19200, 18450],
       isLoading: false,
     ));
   }
@@ -92,7 +107,9 @@ class DashboardScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => DashboardCubit()..load(),
+      create: (_) => DashboardCubit(
+        repository: getIt<ManagerRepository>(),
+      )..load(),
       child: const _DashboardBody(),
     );
   }
