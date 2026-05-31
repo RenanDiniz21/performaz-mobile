@@ -126,6 +126,7 @@ class ClientDetailScreen extends StatelessWidget {
                 onPressed: () => context.push('/orders/no-sale', extra: {
                   'clientId': stop.clientId,
                   'clientName': stop.clientName,
+                  'routeId': stop.routeId,
                 }),
               ),
             ),

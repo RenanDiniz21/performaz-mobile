@@ -110,26 +110,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(const AuthLoading());
 
-    // ════════════════════════════════════════════════════════════════════
-    // 🚧 MOCK — bypass para apresentação sem backend.
-    //    Para integrar com a API real:
-    //    1. Remova este bloco if/return inteiro
-    //    2. O try/catch abaixo já faz login via AuthRepository
-    // ════════════════════════════════════════════════════════════════════
-    // BYPASS TEMPORÁRIO PARA TESTES SEM BACKEND
-    if (event.identifier == 'teste@performaz.com' && event.password == '123456') {
-      await Future<void>.delayed(const Duration(seconds: 1));
-      emit(const AuthAuthenticated(
-        User(
-          id: 'fake_id_123',
-          name: 'Usuário Teste',
-          email: 'teste@performaz.com',
-          role: UserRole.vendedor,
-        ),
-      ));
-      return;
-    }
-
     try {
       final user = await authRepository.login(
         identifier: event.identifier,

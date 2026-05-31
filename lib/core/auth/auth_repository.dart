@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../shared/models/user.dart';
 import '../network/api_client.dart';
 import '../storage/secure_storage.dart';
@@ -11,36 +13,40 @@ class AuthRepository {
   final ApiClient apiClient;
   final SecureStorage secureStorage;
 
+  /// Login — tries vendor login (matricula) first; if identifier looks like
+  /// an email, uses manager login instead.
   Future<User> login({
     required String identifier,
     required String password,
     bool rememberMe = false,
   }) async {
-    final response = await apiClient.post('/auth/login', data: {
-      'identifier': identifier,
-      'password': password,
-    });
+    final isEmail = identifier.contains('@');
+
+    final response = isEmail
+        ? await apiClient.post('/auth/login', data: {
+            'email': identifier,
+            'password': password,
+          })
+        : await apiClient.post('/auth/vendor/login', data: {
+            'matricula': identifier,
+            'password': password,
+          });
 
     final data = response.data as Map<String, dynamic>;
-    final user = User.fromJson(data['user'] as Map<String, dynamic>);
-    final token = data['access_token'] as String;
+    final accessToken = data['accessToken'] as String;
+    final refreshToken = data['refreshToken'] as String;
 
-    await secureStorage.saveAccessToken(token);
+    await secureStorage.saveAccessToken(accessToken);
+    await secureStorage.saveRefreshToken(refreshToken);
+
+    // Decode JWT payload to build User (API doesn't return user object)
+    final user = _userFromJwt(accessToken);
     await secureStorage.saveUserId(user.id);
-
-    if (data['refresh_token'] != null) {
-      await secureStorage.saveRefreshToken(data['refresh_token'] as String);
-    }
 
     return user;
   }
 
   Future<void> logout() async {
-    try {
-      await apiClient.post('/auth/logout');
-    } catch (_) {
-      // Best-effort server logout
-    }
     await secureStorage.clearTokens();
   }
 
@@ -49,35 +55,44 @@ class AuthRepository {
     if (!hasToken) return null;
 
     try {
-      final response = await apiClient.get('/auth/me');
-      return User.fromJson(response.data as Map<String, dynamic>);
+      final token = await secureStorage.getAccessToken();
+      if (token == null) return null;
+      return _userFromJwt(token);
     } catch (_) {
       return null;
     }
   }
 
-  Future<void> forgotPassword(String email) async {
-    await apiClient.post('/auth/forgot-password', data: {'email': email});
+  Future<void> refreshToken() async {
+    final rt = await secureStorage.getRefreshToken();
+    if (rt == null) throw Exception('No refresh token');
+
+    final response = await apiClient.post('/auth/refresh', data: {
+      'refreshToken': rt,
+    });
+
+    final data = response.data as Map<String, dynamic>;
+    await secureStorage.saveAccessToken(data['accessToken'] as String);
+    await secureStorage.saveRefreshToken(data['refreshToken'] as String);
   }
 
-  Future<void> changePassword({
-    required String currentPassword,
-    required String newPassword,
-  }) async {
-    await apiClient.post('/auth/change-password', data: {
-      'current_password': currentPassword,
-      'new_password': newPassword,
-    });
-  }
+  /// Decode a JWT's payload (base64url) without verification.
+  User _userFromJwt(String token) {
+    final parts = token.split('.');
+    if (parts.length != 3) throw const FormatException('Invalid JWT');
 
-  Future<User> updateProfile({
-    String? name,
-    String? phone,
-  }) async {
-    final response = await apiClient.put('/auth/profile', data: {
-      'name': ?name,
-      'phone': ?phone,
-    });
-    return User.fromJson(response.data as Map<String, dynamic>);
+    final payload = parts[1];
+    final normalized = base64Url.normalize(payload);
+    final decoded = utf8.decode(base64Url.decode(normalized));
+    final map = jsonDecode(decoded) as Map<String, dynamic>;
+
+    final role = (map['role'] as String? ?? 'VENDEDOR').toLowerCase();
+
+    return User(
+      id: map['sub'] as String,
+      name: map['email'] as String? ?? '',
+      email: map['email'] as String? ?? '',
+      role: role == 'gestor' ? UserRole.gestor : UserRole.vendedor,
+    );
   }
 }

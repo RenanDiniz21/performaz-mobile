@@ -74,26 +74,35 @@ class DashboardCubit extends Cubit<DashboardState> {
   // ════════════════════════════════════════════════════════════════════
   Future<void> load() async {
     emit(state.copyWith(isLoading: true));
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    try {
+      final kpis = await repository.fetchKpis();
+      final revenueData = await repository.fetchDailyRevenue(days: 7);
 
-    // TODO(api): final kpis = await repository.fetchKpis();
-    // TODO(api): final revenueData = await repository.fetchDailyRevenue(days: 7);
+      final topVendorsList = kpis['topVendors'] as List? ?? [];
+      final topSellers = topVendorsList.map((e) {
+        final map = e as Map<String, dynamic>;
+        return _SellerRank(
+          map['name'] as String? ?? '',
+          (map['revenue'] as num? ?? 0).toDouble(),
+        );
+      }).toList();
 
-    emit(state.copyWith(
-      activeSellers: 12,
-      dailyRevenue: 18450.0,
-      teamGoalPercent: 0.73,
-      ordersToday: 28,
-      topSellers: const [
-        _SellerRank('Carlos Mendes', 5800),
-        _SellerRank('Ana Rodrigues', 4500),
-        _SellerRank('Usuário Teste', 4200),
-        _SellerRank('Juliana Costa', 3800),
-        _SellerRank('Roberto Alves', 3100),
-      ],
-      weeklyRevenue: const [12000, 15000, 11000, 18000, 16500, 19200, 18450],
-      isLoading: false,
-    ));
+      final weeklyRevenue = revenueData.map((e) {
+        return (e['revenue'] as num? ?? 0.0).toDouble();
+      }).toList();
+
+      emit(state.copyWith(
+        activeSellers: kpis['activeVendors'] as int? ?? 0,
+        dailyRevenue: (kpis['totalRevenue'] as num? ?? 0.0).toDouble(),
+        teamGoalPercent: (kpis['goalAchievement'] as num? ?? 0.0).toDouble() / 100.0,
+        ordersToday: kpis['totalSales'] as int? ?? 0,
+        topSellers: topSellers,
+        weeklyRevenue: weeklyRevenue,
+        isLoading: false,
+      ));
+    } catch (_) {
+      emit(state.copyWith(isLoading: false));
+    }
   }
 }
 

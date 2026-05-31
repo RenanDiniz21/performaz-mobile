@@ -14,7 +14,7 @@ class ManagerRepository {
 
   Future<List<Map<String, dynamic>>> fetchDailyRevenue({int days = 7}) async {
     final response = await apiClient.get(
-      '/dashboard/daily-revenue',
+      '/dashboard/revenue',
       queryParameters: {'days': days},
     );
     return (response.data as List).cast<Map<String, dynamic>>();
@@ -42,7 +42,12 @@ class ManagerRepository {
   }
 
   Future<void> updateGoal(String id, Map<String, dynamic> data) async {
-    await apiClient.patch('/goals/$id', data: data);
+    await apiClient.put('/goals/$id', data: data);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchVendors() async {
+    final response = await apiClient.get('/vendors');
+    return (response.data as List).cast<Map<String, dynamic>>();
   }
 
   // --- Notifications ---
@@ -61,8 +66,9 @@ class ManagerRepository {
     await apiClient.post('/notifications', data: {
       'title': title,
       'message': message,
+      'type': 'info',
       'targetAll': targetAll,
-      'vendorIds': ?vendorIds,
+      'targetVendorIds': vendorIds,
     });
   }
 }

@@ -1,7 +1,12 @@
+import 'package:dio/dio.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
+import '../../core/network/api_client.dart';
 import '../../shared/models/route.dart';
+
+import '../../core/storage/secure_storage.dart';
 
 abstract class RouteState extends Equatable {
   const RouteState();
@@ -12,11 +17,12 @@ abstract class RouteState extends Equatable {
 class RouteLoading extends RouteState {}
 
 class RouteLoaded extends RouteState {
-  const RouteLoaded({required this.stops});
+  const RouteLoaded({required this.stops, this.routeId});
   final List<RouteStop> stops;
+  final String? routeId;
 
   @override
-  List<Object?> get props => [stops];
+  List<Object?> get props => [stops, routeId];
 }
 
 class RouteError extends RouteState {
@@ -27,76 +33,106 @@ class RouteError extends RouteState {
   List<Object?> get props => [message];
 }
 
+class RouteEmpty extends RouteState {}
+
 class RouteCubit extends Cubit<RouteState> {
-  RouteCubit() : super(RouteLoading());
+  RouteCubit({
+    required this.apiClient,
+    required this.secureStorage,
+  }) : super(RouteLoading());
 
-  // ════════════════════════════════════════════════════════════════════
-  // 🚧 MOCK — dados falsos para apresentação.
-  //    Para integrar com a API real:
-  //    1. Descomente a linha com _routeRepository.getTodayRoute()
-  //    2. Remova o Future.delayed e o _buildMockStops()
-  //    3. Rode: flutter pub get && dart run build_runner build
-  // ════════════════════════════════════════════════════════════════════
-  Future<void> loadRoute() async {
+  final ApiClient apiClient;
+  final SecureStorage secureStorage;
+
+  Future<void> loadRoute([String? vendorId]) async {
     emit(RouteLoading());
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    try {
+      final actualVendorId = vendorId ?? await secureStorage.getUserId();
+      if (actualVendorId == null) {
+        emit(const RouteError(message: 'Usuário não autenticado.'));
+        return;
+      }
+      final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final response = await apiClient.get(
+        '/routes',
+        queryParameters: {
+          'vendorId': actualVendorId,
+          'date': today,
+        },
+      );
 
-    // TODO(api): final response = await getIt<ApiClient>().get('/routes/today');
-    emit(RouteLoaded(stops: _buildMockStops()));
+      final data = response.data;
+      if (data is List && data.isEmpty) {
+        emit(RouteEmpty());
+        return;
+      }
+
+      // Response is an array of routes; take the first one for today
+      final routes = data as List;
+      final routeData = routes.first as Map<String, dynamic>;
+      final routeId = routeData['id'] as String?;
+
+      // Fetch full route details with clients
+      if (routeId != null) {
+        final detailResponse = await apiClient.get('/routes/$routeId');
+        final detail = detailResponse.data as Map<String, dynamic>;
+        final clientsList = detail['clients'] as List? ?? [];
+
+        final stops = clientsList.map((e) {
+          final map = e as Map<String, dynamic>;
+          return RouteStop(
+            id: map['id'] as String,
+            routeId: routeId,
+            clientId: map['clientId'] as String? ?? map['client_id'] as String,
+            clientName: map['clientName'] as String? ?? '',
+            address: '',
+            order: map['order'] as int? ?? 0,
+            status: _parseStatus(map['status'] as String? ?? 'pendente'),
+            noSaleReason: map['visitReason'] as String? ?? map['visit_reason'] as String?,
+            checkinAt: map['checkInTime'] != null
+                ? DateTime.tryParse(map['checkInTime'].toString())
+                : null,
+          );
+        }).toList();
+
+        emit(RouteLoaded(stops: stops, routeId: routeId));
+      } else {
+        emit(RouteEmpty());
+      }
+    } on DioException catch (e) {
+      emit(RouteError(message: _parseDioError(e)));
+    } catch (e) {
+      emit(RouteError(message: e.toString()));
+    }
   }
 
-  List<RouteStop> _buildMockStops() {
-    return const [
-      RouteStop(
-        id: 'stop-001',
-        clientId: 'client-001',
-        clientName: 'Supermercado Paulistão',
-        address: 'Av. Paulista, 1234 — São Paulo, SP',
-        order: 0,
-        status: VisitStatus.pendente,
-      ),
-      RouteStop(
-        id: 'stop-002',
-        clientId: 'client-002',
-        clientName: 'Padaria Dona Maria',
-        address: 'Rua Augusta, 567 — São Paulo, SP',
-        order: 1,
-        status: VisitStatus.visitado,
-      ),
-      RouteStop(
-        id: 'stop-003',
-        clientId: 'client-003',
-        clientName: 'Mercado Bom Preço',
-        address: 'Rua Oscar Freire, 890 — São Paulo, SP',
-        order: 2,
-        status: VisitStatus.pendente,
-      ),
-      RouteStop(
-        id: 'stop-004',
-        clientId: 'client-004',
-        clientName: 'Loja do João',
-        address: 'Rua Haddock Lobo, 321 — São Paulo, SP',
-        order: 3,
-        status: VisitStatus.visitaSemVenda,
-        noSaleReason: 'Cliente fechado',
-      ),
-      RouteStop(
-        id: 'stop-005',
-        clientId: 'client-005',
-        clientName: 'Distribuidora Central',
-        address: 'Av. Rebouças, 2200 — São Paulo, SP',
-        order: 4,
-        status: VisitStatus.vendaRealizada,
-      ),
-    ];
+  VisitStatus _parseStatus(String status) {
+    return switch (status) {
+      'pendente' => VisitStatus.pendente,
+      'visitado' => VisitStatus.visitado,
+      'venda_realizada' => VisitStatus.vendaRealizada,
+      'sem_venda' => VisitStatus.visitaSemVenda,
+      _ => VisitStatus.pendente,
+    };
   }
 
   void reorderStops(int oldIndex, int newIndex) {
     if (state is RouteLoaded) {
-      final stops = List<RouteStop>.from((state as RouteLoaded).stops);
+      final loaded = state as RouteLoaded;
+      final stops = List<RouteStop>.from(loaded.stops);
       final item = stops.removeAt(oldIndex);
       stops.insert(newIndex, item);
-      emit(RouteLoaded(stops: stops));
+      emit(RouteLoaded(stops: stops, routeId: loaded.routeId));
     }
+  }
+
+  String _parseDioError(DioException e) {
+    final data = e.response?.data;
+    if (data is Map && data['message'] != null) return data['message'].toString();
+    return switch (e.type) {
+      DioExceptionType.connectionTimeout => 'Sem conexão com o servidor',
+      DioExceptionType.badResponse => 'Erro ${e.response?.statusCode}',
+      _ => 'Erro de rede',
+    };
   }
 }

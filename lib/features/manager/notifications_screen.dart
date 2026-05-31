@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../app/di.dart';
+import '../../core/repositories/manager_repository.dart';
 
 // ---------------------------------------------------------------------------
 // Models
@@ -76,47 +78,47 @@ class NotificationsState {
 // ---------------------------------------------------------------------------
 
 class NotificationsCubit extends Cubit<NotificationsState> {
-  NotificationsCubit() : super(const NotificationsState());
+  NotificationsCubit({required this.repository}) : super(const NotificationsState());
 
-  // ════════════════════════════════════════════════════════════════════
-  // 🚧 MOCK — dados falsos para apresentação.
-  //    Para integrar com a API real:
-  //    1. Descomente as linhas com getIt<ApiClient>().get(...)
-  //    2. Remova o Future.delayed e os dados mock
-  //    3. Rode: flutter pub get && dart run build_runner build
-  // ════════════════════════════════════════════════════════════════════
+  final ManagerRepository repository;
+
   Future<void> load() async {
     emit(state.copyWith(isLoading: true));
-    await Future<void>.delayed(const Duration(milliseconds: 500));
+    try {
+      final notifsData = await repository.fetchNotifications();
+      final vendorsData = await repository.fetchVendors();
 
-    final sellers = [
-      const _SellerOption('s1', 'João Silva'),
-      const _SellerOption('s2', 'Maria Souza'),
-      const _SellerOption('s3', 'Pedro Santos'),
-    ];
+      final sellers = vendorsData
+          .map((v) => _SellerOption(v['id'] as String, v['name'] as String))
+          .toList();
 
-    final history = [
-      _NotificationRecord(
-        id: 'n1',
-        title: 'Nova Meta Mensal',
-        message: 'Confira as novas metas de vendas no painel.',
-        target: 'Todos',
-        sentAt: DateTime.now().subtract(const Duration(days: 1)),
-      ),
-      _NotificationRecord(
-        id: 'n2',
-        title: 'Reunião de Alinhamento',
-        message: 'Amanhã às 08h teremos nossa call semanal.',
-        target: 'Maria Souza',
-        sentAt: DateTime.now().subtract(const Duration(days: 2)),
-      ),
-    ];
+      final history = notifsData.map((n) {
+        final target = n['targetAll'] == true
+            ? 'Todos'
+            : 'Específico';
+        final sentAt = n['createdAt'] != null
+            ? DateTime.parse(n['createdAt'].toString())
+            : DateTime.now();
 
-    emit(state.copyWith(
-      sellers: sellers,
-      history: history,
-      isLoading: false,
-    ));
+        return _NotificationRecord(
+          id: n['id'] as String,
+          title: n['title'] as String,
+          message: n['message'] as String,
+          target: target,
+          sentAt: sentAt,
+        );
+      }).toList();
+
+      history.sort((a, b) => b.sentAt.compareTo(a.sentAt));
+
+      emit(state.copyWith(
+        sellers: sellers,
+        history: history,
+        isLoading: false,
+      ));
+    } catch (_) {
+      emit(state.copyWith(isLoading: false));
+    }
   }
 
   void selectSeller(String? id) {
@@ -131,27 +133,22 @@ class NotificationsCubit extends Cubit<NotificationsState> {
     if (title.isEmpty || message.isEmpty) return;
 
     emit(state.copyWith(isSending: true));
-    await Future<void>.delayed(const Duration(milliseconds: 800));
+    try {
+      final targetAll = state.selectedSellerId == null;
+      final vendorIds = targetAll ? null : [state.selectedSellerId!];
 
-    final targetName = state.selectedSellerId != null
-        ? state.sellers
-            .firstWhere((s) => s.id == state.selectedSellerId)
-            .name
-        : 'Todos';
+      await repository.sendNotification(
+        title: title,
+        message: message,
+        targetAll: targetAll,
+        vendorIds: vendorIds,
+      );
 
-    final record = _NotificationRecord(
-      id: 'n${state.history.length + 1}',
-      title: title,
-      message: message,
-      target: targetName,
-      sentAt: DateTime.now(),
-    );
-
-    emit(state.copyWith(
-      history: [record, ...state.history],
-      isSending: false,
-      clearSelectedSeller: true,
-    ));
+      await load();
+      emit(state.copyWith(isSending: false, clearSelectedSeller: true));
+    } catch (_) {
+      emit(state.copyWith(isSending: false));
+    }
   }
 }
 
@@ -165,7 +162,9 @@ class NotificationsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => NotificationsCubit()..load(),
+      create: (_) => NotificationsCubit(
+        repository: getIt<ManagerRepository>(),
+      )..load(),
       child: const _NotificationsBody(),
     );
   }

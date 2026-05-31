@@ -29,6 +29,9 @@ import '../shared/models/route.dart' as models;
 import '../shared/models/user.dart';
 import 'shell/seller_shell.dart';
 import 'shell/manager_shell.dart';
+import '../core/network/api_client.dart';
+import '../core/storage/secure_storage.dart';
+import 'di.dart';
 
 class AppRouter {
   AppRouter({required this.authBloc});
@@ -56,7 +59,12 @@ class AppRouter {
           providers: [
             BlocProvider(create: (_) => CartCubit()),
             BlocProvider(create: (_) => ProductCatalogCubit()),
-            BlocProvider(create: (_) => RouteCubit()..loadRoute()),
+            BlocProvider(
+              create: (_) => RouteCubit(
+                apiClient: getIt<ApiClient>(),
+                secureStorage: getIt<SecureStorage>(),
+              )..loadRoute(),
+            ),
           ],
           child: SellerShell(child: child),
         ),
@@ -124,6 +132,7 @@ class AppRouter {
               return NoSaleScreen(
                 clientId: extra?['clientId'] as String? ?? '',
                 clientName: extra?['clientName'] as String? ?? '',
+                routeId: extra?['routeId'] as String?,
               );
             },
           ),
