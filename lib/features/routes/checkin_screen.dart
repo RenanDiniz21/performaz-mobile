@@ -124,11 +124,15 @@ class CheckinCubit extends Cubit<CheckinState> {
   Future<void> confirm() async {
     emit(state.copyWith(phase: CheckinPhase.submitting));
     try {
-      await getIt<ApiClient>().post('/checkin', data: {
-        'stopId': stop.id,
-        'latitude': state.latitude,
-        'longitude': state.longitude,
-        'photoPath': state.photoPath,
+      final routeId = stop.routeId;
+      if (routeId == null) {
+        throw Exception('ID da rota não encontrado');
+      }
+      await getIt<ApiClient>().post('/routes/$routeId/checkin', data: {
+        'clientId': stop.clientId,
+        'lat': state.latitude,
+        'lng': state.longitude,
+        'photoUrl': state.photoPath,
       });
       emit(state.copyWith(phase: CheckinPhase.success));
     } catch (e) {

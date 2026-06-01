@@ -74,10 +74,15 @@ class NoSaleState extends Equatable {
 // ---------------------------------------------------------------------------
 
 class NoSaleCubit extends Cubit<NoSaleState> {
-  NoSaleCubit(this.apiClient, this.clientId) : super(const NoSaleState());
+  NoSaleCubit({
+    required this.apiClient,
+    required this.clientId,
+    this.routeId,
+  }) : super(const NoSaleState());
 
   final ApiClient apiClient;
   final String clientId;
+  final String? routeId;
 
   void selectReason(NoSaleReason reason) {
     emit(state.copyWith(
@@ -99,16 +104,30 @@ class NoSaleCubit extends Cubit<NoSaleState> {
     emit(state.copyWith(isSubmitting: true));
 
     try {
-      await apiClient.patch('/clients/$clientId/no-sale', data: {
-        'reason': state.selectedReason!.name,
-        'notes': state.notes,
-      });
+      final apiReason = switch (state.selectedReason!) {
+        NoSaleReason.clienteClosed => 'cliente_fechado',
+        NoSaleReason.semInteresse => 'sem_interesse',
+        NoSaleReason.compraraDepois => 'vai_comprar_depois',
+      };
+
+      if (routeId != null) {
+        await apiClient.post('/routes/$routeId/no-sale', data: {
+          'clientId': clientId,
+          'visitReason': apiReason,
+        });
+      } else {
+        // Fallback if routeId is not provided
+        await apiClient.post('/routes/no-sale', data: {
+          'clientId': clientId,
+          'visitReason': apiReason,
+        });
+      }
       emit(state.copyWith(isSubmitting: false, isSubmitted: true));
     } catch (e) {
       emit(state.copyWith(
         isSubmitting: false,
         showValidationError: true,
-        errorMessage: 'Erro ao registrar. Tente novamente.',
+        errorMessage: 'Erro ao registrar: $e',
       ));
     }
   }
@@ -123,15 +142,21 @@ class NoSaleScreen extends StatelessWidget {
     super.key,
     required this.clientId,
     required this.clientName,
+    this.routeId,
   });
 
   final String clientId;
   final String clientName;
+  final String? routeId;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => NoSaleCubit(getIt<ApiClient>(), clientId),
+      create: (_) => NoSaleCubit(
+        apiClient: getIt<ApiClient>(),
+        clientId: clientId,
+        routeId: routeId,
+      ),
       child: _NoSaleBody(clientName: clientName),
     );
   }

@@ -5,6 +5,7 @@ enum VisitStatus { pendente, visitado, vendaRealizada, visitaSemVenda }
 class RouteStop extends Equatable {
   const RouteStop({
     required this.id,
+    this.routeId,
     required this.clientId,
     required this.clientName,
     required this.address,
@@ -18,6 +19,7 @@ class RouteStop extends Equatable {
   });
 
   final String id;
+  final String? routeId;
   final String clientId;
   final String clientName;
   final String address;
@@ -32,23 +34,27 @@ class RouteStop extends Equatable {
   factory RouteStop.fromJson(Map<String, dynamic> json) {
     return RouteStop(
       id: json['id'] as String,
-      clientId: json['client_id'] as String,
-      clientName: json['client_name'] as String,
-      address: json['address'] as String,
+      routeId: json['route_id'] as String? ?? json['routeId'] as String?,
+      clientId: json['client_id'] as String? ?? json['clientId'] as String,
+      clientName: json['client_name'] as String? ?? json['clientName'] as String? ?? '',
+      address: json['address'] as String? ?? '',
       order: json['order'] as int,
-      status: VisitStatus.values.byName(json['status'] as String),
+      status: VisitStatus.values.byName(json['status'] as String? ?? 'pendente'),
       checkinAt: json['checkin_at'] != null
           ? DateTime.parse(json['checkin_at'] as String)
-          : null,
-      checkinLatitude: (json['checkin_latitude'] as num?)?.toDouble(),
-      checkinLongitude: (json['checkin_longitude'] as num?)?.toDouble(),
-      checkinPhotoUrl: json['checkin_photo_url'] as String?,
-      noSaleReason: json['no_sale_reason'] as String?,
+          : json['checkInTime'] != null
+              ? DateTime.parse(json['checkInTime'] as String)
+              : null,
+      checkinLatitude: (json['checkin_latitude'] as num?)?.toDouble() ?? (json['lat'] as num?)?.toDouble(),
+      checkinLongitude: (json['checkin_longitude'] as num?)?.toDouble() ?? (json['lng'] as num?)?.toDouble(),
+      checkinPhotoUrl: json['checkin_photo_url'] as String? ?? json['photoUrl'] as String?,
+      noSaleReason: json['no_sale_reason'] as String? ?? json['visitReason'] as String? ?? json['visit_reason'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() => {
         'id': id,
+        'route_id': routeId,
         'client_id': clientId,
         'client_name': clientName,
         'address': address,
@@ -69,9 +75,11 @@ class RouteStop extends Equatable {
     double? checkinLongitude,
     String? checkinPhotoUrl,
     String? noSaleReason,
+    String? routeId,
   }) {
     return RouteStop(
       id: id,
+      routeId: routeId ?? this.routeId,
       clientId: clientId,
       clientName: clientName,
       address: address,
@@ -88,6 +96,7 @@ class RouteStop extends Equatable {
   @override
   List<Object?> get props => [
         id,
+        routeId,
         clientId,
         clientName,
         address,

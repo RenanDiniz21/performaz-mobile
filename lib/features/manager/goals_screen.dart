@@ -22,6 +22,8 @@ class _SellerGoal {
     this.revenueCurrent = 0,
     this.positivacaoTarget = 0,
     this.positivacaoCurrent = 0,
+    this.revenueGoalId,
+    this.positivacaoGoalId,
   });
 
   final String sellerId;
@@ -30,6 +32,8 @@ class _SellerGoal {
   double revenueCurrent;
   int positivacaoTarget;
   int positivacaoCurrent;
+  String? revenueGoalId;
+  String? positivacaoGoalId;
 
   double get revenuePercent =>
       revenueTarget > 0 ? (revenueCurrent / revenueTarget).clamp(0, 1) : 0;
@@ -79,28 +83,48 @@ class GoalsCubit extends Cubit<GoalsState> {
   static final _currencyFormat =
       NumberFormat.currency(locale: 'pt_BR', symbol: 'R\$');
 
-  // ════════════════════════════════════════════════════════════════════
-  // 🚧 MOCK — dados falsos para apresentação.
-  //    Para integrar com a API real:
-  //    1. Descomente a linha com repository.fetchGoals()
-  //    2. Remova o Future.delayed e os dados mock
-  //    3. Rode: flutter pub get && dart run build_runner build
-  // ════════════════════════════════════════════════════════════════════
   Future<void> load() async {
     emit(state.copyWith(isLoading: true));
-    await Future<void>.delayed(const Duration(milliseconds: 400));
+    try {
+      final goalsData = await repository.fetchGoals();
+      final vendorsData = await repository.fetchVendors();
 
-    // TODO(api): final data = await repository.fetchGoals();
+      final apiPeriod = state.period == GoalPeriod.monthly ? 'mensal' : 'semanal';
 
-    final goals = [
-      _SellerGoal(sellerId: 'v1', sellerName: 'Carlos Mendes', revenueTarget: 25000, revenueCurrent: 18200, positivacaoTarget: 30, positivacaoCurrent: 22),
-      _SellerGoal(sellerId: 'v2', sellerName: 'Ana Rodrigues', revenueTarget: 25000, revenueCurrent: 21500, positivacaoTarget: 30, positivacaoCurrent: 28),
-      _SellerGoal(sellerId: 'v3', sellerName: 'Usuário Teste', revenueTarget: 20000, revenueCurrent: 14800, positivacaoTarget: 25, positivacaoCurrent: 18),
-      _SellerGoal(sellerId: 'v4', sellerName: 'Juliana Costa', revenueTarget: 22000, revenueCurrent: 16000, positivacaoTarget: 28, positivacaoCurrent: 20),
-      _SellerGoal(sellerId: 'v5', sellerName: 'Roberto Alves', revenueTarget: 18000, revenueCurrent: 15500, positivacaoTarget: 20, positivacaoCurrent: 17),
-    ];
+      final List<_SellerGoal> sellerGoals = [];
+      for (final vendor in vendorsData) {
+        final vendorId = vendor['id'] as String;
+        final vendorName = vendor['name'] as String;
 
-    emit(state.copyWith(goals: goals, isLoading: false));
+        final vendorGoals = goalsData.where((g) =>
+            g['vendorId'] == vendorId && g['period'] == apiPeriod);
+
+        final revenueGoal = vendorGoals.firstWhere(
+          (g) => g['type'] == 'receita',
+          orElse: () => <String, dynamic>{},
+        );
+
+        final salesGoal = vendorGoals.firstWhere(
+          (g) => g['type'] == 'vendas',
+          orElse: () => <String, dynamic>{},
+        );
+
+        sellerGoals.add(_SellerGoal(
+          sellerId: vendorId,
+          sellerName: vendorName,
+          revenueTarget: (revenueGoal['target'] as num? ?? 0).toDouble(),
+          revenueCurrent: (revenueGoal['current'] as num? ?? 0).toDouble(),
+          positivacaoTarget: (salesGoal['target'] as num? ?? 0).toInt(),
+          positivacaoCurrent: (salesGoal['current'] as num? ?? 0).toInt(),
+          revenueGoalId: revenueGoal['id'] as String?,
+          positivacaoGoalId: salesGoal['id'] as String?,
+        ));
+      }
+
+      emit(state.copyWith(goals: sellerGoals, isLoading: false));
+    } catch (_) {
+      emit(state.copyWith(goals: [], isLoading: false));
+    }
   }
 
   void setPeriod(GoalPeriod period) {
@@ -112,9 +136,25 @@ class GoalsCubit extends Cubit<GoalsState> {
     final goals = List<_SellerGoal>.from(state.goals);
     final idx = goals.indexWhere((g) => g.sellerId == sellerId);
     if (idx >= 0) {
-      goals[idx].revenueTarget = target;
+      final sellerGoal = goals[idx];
+      sellerGoal.revenueTarget = target;
       emit(state.copyWith(goals: goals));
-      // TODO(api): await repository.updateGoal(sellerId, {'revenueTarget': target});
+      try {
+        if (sellerGoal.revenueGoalId != null) {
+          await repository.updateGoal(sellerGoal.revenueGoalId!, {'target': target});
+        } else {
+          final now = DateTime.now();
+          await repository.createGoal({
+            'vendorId': sellerId,
+            'period': state.period == GoalPeriod.monthly ? 'mensal' : 'semanal',
+            'type': 'receita',
+            'target': target,
+            'startDate': DateTime(now.year, now.month, 1).toIso8601String(),
+            'endDate': DateTime(now.year, now.month + 1, 0).toIso8601String(),
+          });
+          load();
+        }
+      } catch (_) {}
     }
   }
 
@@ -122,9 +162,25 @@ class GoalsCubit extends Cubit<GoalsState> {
     final goals = List<_SellerGoal>.from(state.goals);
     final idx = goals.indexWhere((g) => g.sellerId == sellerId);
     if (idx >= 0) {
-      goals[idx].positivacaoTarget = target;
+      final sellerGoal = goals[idx];
+      sellerGoal.positivacaoTarget = target;
       emit(state.copyWith(goals: goals));
-      // TODO(api): await repository.updateGoal(sellerId, {'positivacaoTarget': target});
+      try {
+        if (sellerGoal.positivacaoGoalId != null) {
+          await repository.updateGoal(sellerGoal.positivacaoGoalId!, {'target': target});
+        } else {
+          final now = DateTime.now();
+          await repository.createGoal({
+            'vendorId': sellerId,
+            'period': state.period == GoalPeriod.monthly ? 'mensal' : 'semanal',
+            'type': 'vendas',
+            'target': target,
+            'startDate': DateTime(now.year, now.month, 1).toIso8601String(),
+            'endDate': DateTime(now.year, now.month + 1, 0).toIso8601String(),
+          });
+          load();
+        }
+      } catch (_) {}
     }
   }
 

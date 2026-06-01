@@ -100,99 +100,60 @@ class GamificationDashboardCubit extends Cubit<GamificationDashboardState> {
 
   final GamificationRepository repository;
 
-  // ════════════════════════════════════════════════════════════════════
-  // 🚧 MOCK — dados falsos para apresentação.
-  //    Para integrar com a API real:
-  //    1. Descomente a linha com repository.fetchVendorStats(vendorId)
-  //    2. Remova o Future.delayed e os _buildMock*()
-  //    3. Rode: flutter pub get && dart run build_runner build
-  // ════════════════════════════════════════════════════════════════════
   Future<void> load(String vendorId) async {
     emit(state.copyWith(isLoading: true, error: null));
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    try {
+      final stats = await repository.fetchVendorStats(vendorId);
 
-    // TODO(api): final stats = await repository.fetchVendorStats(vendorId);
+      final vendor = stats['vendor'] as Map<String, dynamic>;
+      final xp = vendor['xp'] as int? ?? 0;
+      final level = vendor['level'] as int? ?? 1;
 
-    final user = const User(
-      id: 'fake_id_123',
-      name: 'Usuário Teste',
-      email: 'teste@performaz.com',
-      role: UserRole.vendedor,
-      level: 12,
-    );
+      final achievementsList = stats['achievements'] as List? ?? [];
+      final achievements = achievementsList
+          .map((e) => Achievement.fromJson(e as Map<String, dynamic>))
+          .toList();
 
-    final achievements = const [
-      Achievement(
-        id: 'a1',
-        type: AchievementType.primeiraVendaDoDia,
-        title: 'Primeira Venda',
-        description: 'Registrou seu primeiro pedido',
-        iconName: 'military_tech',
-        xpReward: 50,
-      ),
-      Achievement(
-        id: 'a2',
-        type: AchievementType.dezClientesVisitados,
-        title: 'Visitas Rápidas',
-        description: '10 clientes visitados em um dia',
-        iconName: 'directions_run',
-        xpReward: 100,
-      ),
-      Achievement(
-        id: 'a3',
-        type: AchievementType.metaSemanalAtingida,
-        title: 'Meta Batida',
-        description: 'Atingiu a meta semanal de vendas',
-        iconName: 'emoji_events',
-        xpReward: 500,
-      ),
-    ];
+      final xpList = stats['xpHistory'] as List? ?? [];
+      final xpEvents = xpList
+          .map((e) => XpEvent.fromJson(e as Map<String, dynamic>))
+          .toList();
 
-    final xpEvents = [
-      XpEvent(
-        id: 'e1',
-        description: 'Pedido confirmado — Supermercado Paulistão',
-        xpAmount: 50,
-        createdAt: DateTime.now().subtract(const Duration(minutes: 15)),
-      ),
-      XpEvent(
-        id: 'e2',
-        description: 'Check-in realizado — Padaria Dona Maria',
-        xpAmount: 10,
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-      ),
-      XpEvent(
-        id: 'e3',
-        description: 'Meta diária atingida!',
-        xpAmount: 100,
-        createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-      ),
-      XpEvent(
-        id: 'e4',
-        description: 'Pedido confirmado — Distribuidora Central',
-        xpAmount: 50,
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-      ),
-      XpEvent(
-        id: 'e5',
-        description: 'Check-in realizado — Mercado Bom Preço',
-        xpAmount: 10,
-        createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 3)),
-      ),
-    ];
+      final nextLevelXp = level * 1000;
+      final currentLevelXpProgress = xp % nextLevelXp;
 
-    emit(state.copyWith(
-      isLoading: false,
-      user: user,
-      currentXp: 4750,
-      nextLevelXp: 5000,
-      dailyScore: 120,
-      weeklyScore: 450,
-      dailyTrend: '+12%',
-      weeklyTrend: '+5%',
-      nextAchievements: achievements,
-      recentXpEvents: xpEvents,
-    ));
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final dailyScore = xpEvents
+          .where((e) => e.createdAt.isAfter(today))
+          .fold(0, (sum, e) => sum + e.xpAmount);
+
+      final weekAgo = today.subtract(const Duration(days: 7));
+      final weeklyScore = xpEvents
+          .where((e) => e.createdAt.isAfter(weekAgo))
+          .fold(0, (sum, e) => sum + e.xpAmount);
+
+      emit(state.copyWith(
+        isLoading: false,
+        user: User(
+          id: vendor['id'] as String,
+          name: vendor['name'] as String,
+          email: vendor['email'] as String,
+          role: UserRole.vendedor,
+          level: level,
+        ),
+        currentXp: currentLevelXpProgress,
+        nextLevelXp: nextLevelXp,
+        dailyScore: dailyScore,
+        weeklyScore: weeklyScore,
+        dailyTrend: '+10%',
+        weeklyTrend: '+15%',
+        nextAchievements: achievements,
+        recentXpEvents: xpEvents,
+      ));
+    } catch (e) {
+      emit(state.copyWith(isLoading: false, error: e.toString()));
+    }
   }
 }
 

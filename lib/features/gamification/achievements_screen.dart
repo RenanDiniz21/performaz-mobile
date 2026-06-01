@@ -62,69 +62,12 @@ class AchievementsCubit extends Cubit<AchievementsState> {
   // ════════════════════════════════════════════════════════════════════
   Future<void> load(String vendorId) async {
     emit(state.copyWith(isLoading: true));
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-
-    // TODO(api): final achievements = await repository.fetchAchievements(vendorId);
-
-    final now = DateTime.now();
-    final achievements = [
-      Achievement(
-        id: 'a1',
-        type: AchievementType.primeiraVendaDoDia,
-        title: 'Primeira Venda',
-        description: 'Registrou seu primeiro pedido',
-        iconName: 'military_tech',
-        xpReward: 100,
-        unlockedAt: now.subtract(const Duration(days: 30)),
-      ),
-      Achievement(
-        id: 'a2',
-        type: AchievementType.dezClientesVisitados,
-        title: 'Sequência de Fogo',
-        description: '10 clientes visitados em um dia',
-        iconName: 'directions_run',
-        xpReward: 250,
-        unlockedAt: now.subtract(const Duration(days: 12)),
-      ),
-      Achievement(
-        id: 'a3',
-        type: AchievementType.centuriao,
-        title: 'Centurião',
-        description: '100 vendas realizadas',
-        iconName: 'emoji_events',
-        xpReward: 500,
-        unlockedAt: now.subtract(const Duration(days: 5)),
-      ),
-      Achievement(
-        id: 'a4',
-        type: AchievementType.maratonista,
-        title: 'Maratonista',
-        description: '20 visitas em um único dia',
-        iconName: 'directions_run',
-        xpReward: 300,
-        unlockedAt: now.subtract(const Duration(days: 2)),
-      ),
-      const Achievement(
-        id: 'a5',
-        type: AchievementType.metaSemanalAtingida,
-        title: 'Mestre das Metas',
-        description: 'Bateu a meta semanal 3x seguidas',
-        iconName: 'military_tech',
-        xpReward: 750,
-        // unlockedAt: null → bloqueada
-      ),
-      const Achievement(
-        id: 'a6',
-        type: AchievementType.topSemanal,
-        title: 'Top 3 Regional',
-        description: 'Ficou entre os 3 primeiros no ranking',
-        iconName: 'emoji_events',
-        xpReward: 1000,
-        // unlockedAt: null → bloqueada
-      ),
-    ];
-
-    emit(state.copyWith(isLoading: false, achievements: achievements));
+    try {
+      final achievements = await repository.fetchAchievements(vendorId);
+      emit(state.copyWith(isLoading: false, achievements: achievements));
+    } catch (_) {
+      emit(state.copyWith(isLoading: false, achievements: const []));
+    }
   }
 
   void clearUnlockAnimation() {
