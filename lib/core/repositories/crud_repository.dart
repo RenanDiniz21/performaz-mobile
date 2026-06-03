@@ -19,7 +19,7 @@ class CrudRepository {
   }
 
   Future<void> updateVendor(String id, Map<String, dynamic> data) async {
-    await apiClient.patch('/vendors/$id', data: data);
+    await apiClient.put('/vendors/$id', data: data);
   }
 
   Future<void> deleteVendor(String id) async {
@@ -39,7 +39,7 @@ class CrudRepository {
   }
 
   Future<void> updateClient(String id, Map<String, dynamic> data) async {
-    await apiClient.patch('/clients/$id', data: data);
+    await apiClient.put('/clients/$id', data: data);
   }
 
   Future<void> deleteClient(String id) async {
@@ -59,7 +59,7 @@ class CrudRepository {
   }
 
   Future<void> updateProduct(String id, Map<String, dynamic> data) async {
-    await apiClient.patch('/products/$id', data: data);
+    await apiClient.put('/products/$id', data: data);
   }
 
   Future<void> deleteProduct(String id) async {

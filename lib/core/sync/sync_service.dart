@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:logger/logger.dart';
 
@@ -53,13 +54,16 @@ class SyncService {
     final checkins = await localDb.getUnsyncedCheckins();
     for (final checkin in checkins) {
       try {
-        await apiClient.post('/checkins', data: {
-          'id': checkin.id,
-          'client_id': checkin.clientId,
-          'checkin_at': checkin.checkinAt.toIso8601String(),
-          'latitude': checkin.latitude,
-          'longitude': checkin.longitude,
-          'photo_path': checkin.photoPath,
+        if (checkin.routeId == null) {
+          _logger.w('Cannot sync checkin ${checkin.id}: missing routeId');
+          continue;
+        }
+
+        await apiClient.post('/routes/${checkin.routeId}/checkin', data: {
+          'clientId': checkin.clientId,
+          'lat': checkin.latitude,
+          'lng': checkin.longitude,
+          'photoUrl': checkin.photoPath,
         });
         await localDb.markCheckinSynced(checkin.id);
       } catch (e) {
@@ -72,13 +76,12 @@ class SyncService {
     final orders = await localDb.getUnsyncedOrders();
     for (final order in orders) {
       try {
+        final items = jsonDecode(order.itemsJson) as List<dynamic>;
         await apiClient.post('/orders', data: {
-          'id': order.id,
-          'client_id': order.clientId,
-          'seller_id': order.sellerId,
-          'items': order.itemsJson,
+          'vendorId': order.sellerId,
+          'clientId': order.clientId,
+          'items': items,
           'notes': order.notes,
-          'created_at': order.createdAt.toIso8601String(),
         });
         await localDb.markOrderSynced(order.id);
       } catch (e) {

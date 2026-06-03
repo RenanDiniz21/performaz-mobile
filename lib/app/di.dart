@@ -1,4 +1,9 @@
+import 'dart:io';
+
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
 import 'package:get_it/get_it.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../core/auth/auth_bloc.dart';
 import '../core/auth/auth_repository.dart';
@@ -9,13 +14,24 @@ import '../core/repositories/gamification_repository.dart';
 import '../core/repositories/manager_repository.dart';
 import '../core/repositories/order_repository.dart';
 import '../core/storage/secure_storage.dart';
-import 'package:drift/native.dart';
 import '../core/storage/local_database.dart';
 import '../core/sync/sync_service.dart';
 
 final getIt = GetIt.instance;
 
-void setupDependencies() {
+QueryExecutor _openDatabase({required bool useInMemoryDatabase}) {
+  if (useInMemoryDatabase) return NativeDatabase.memory();
+
+  return LazyDatabase(() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}${Platform.pathSeparator}performaz.sqlite');
+    return NativeDatabase.createInBackground(file);
+  });
+}
+
+void setupDependencies({bool useInMemoryDatabase = false}) {
+  if (getIt.isRegistered<SecureStorage>()) return;
+
   // Storage
   getIt.registerLazySingleton<SecureStorage>(() => SecureStorage());
 
@@ -31,7 +47,9 @@ void setupDependencies() {
 
   // Storage (Local DB)
   getIt.registerLazySingleton<LocalDatabase>(
-    () => LocalDatabase(NativeDatabase.memory()),
+    () => LocalDatabase(
+      _openDatabase(useInMemoryDatabase: useInMemoryDatabase),
+    ),
   );
 
   // Sync

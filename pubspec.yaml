@@ -25,6 +25,7 @@ dependencies:
   # Local database (offline)
   drift: ^2.25.0
   sqlite3_flutter_libs: ^0.5.30
+  path_provider: ^2.1.5
 
   # Dependency injection
   get_it: ^8.0.3

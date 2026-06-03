@@ -18,6 +18,17 @@ class $PendingCheckinsTable extends PendingCheckins
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _routeIdMeta = const VerificationMeta(
+    'routeId',
+  );
+  @override
+  late final GeneratedColumn<String> routeId = GeneratedColumn<String>(
+    'route_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _clientIdMeta = const VerificationMeta(
     'clientId',
   );
@@ -89,6 +100,7 @@ class $PendingCheckinsTable extends PendingCheckins
   @override
   List<GeneratedColumn> get $columns => [
     id,
+    routeId,
     clientId,
     checkinAt,
     latitude,
@@ -112,6 +124,12 @@ class $PendingCheckinsTable extends PendingCheckins
       context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
     } else if (isInserting) {
       context.missing(_idMeta);
+    }
+    if (data.containsKey('route_id')) {
+      context.handle(
+        _routeIdMeta,
+        routeId.isAcceptableOrUnknown(data['route_id']!, _routeIdMeta),
+      );
     }
     if (data.containsKey('client_id')) {
       context.handle(
@@ -170,6 +188,10 @@ class $PendingCheckinsTable extends PendingCheckins
         DriftSqlType.string,
         data['${effectivePrefix}id'],
       )!,
+      routeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}route_id'],
+      ),
       clientId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}client_id'],
@@ -205,6 +227,7 @@ class $PendingCheckinsTable extends PendingCheckins
 
 class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
   final String id;
+  final String? routeId;
   final String clientId;
   final DateTime checkinAt;
   final double latitude;
@@ -213,6 +236,7 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
   final bool synced;
   const PendingCheckin({
     required this.id,
+    this.routeId,
     required this.clientId,
     required this.checkinAt,
     required this.latitude,
@@ -224,6 +248,9 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
+    if (!nullToAbsent || routeId != null) {
+      map['route_id'] = Variable<String>(routeId);
+    }
     map['client_id'] = Variable<String>(clientId);
     map['checkin_at'] = Variable<DateTime>(checkinAt);
     map['latitude'] = Variable<double>(latitude);
@@ -238,6 +265,9 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
   PendingCheckinsCompanion toCompanion(bool nullToAbsent) {
     return PendingCheckinsCompanion(
       id: Value(id),
+      routeId: routeId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(routeId),
       clientId: Value(clientId),
       checkinAt: Value(checkinAt),
       latitude: Value(latitude),
@@ -256,6 +286,7 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return PendingCheckin(
       id: serializer.fromJson<String>(json['id']),
+      routeId: serializer.fromJson<String?>(json['routeId']),
       clientId: serializer.fromJson<String>(json['clientId']),
       checkinAt: serializer.fromJson<DateTime>(json['checkinAt']),
       latitude: serializer.fromJson<double>(json['latitude']),
@@ -269,6 +300,7 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
+      'routeId': serializer.toJson<String?>(routeId),
       'clientId': serializer.toJson<String>(clientId),
       'checkinAt': serializer.toJson<DateTime>(checkinAt),
       'latitude': serializer.toJson<double>(latitude),
@@ -280,6 +312,7 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
 
   PendingCheckin copyWith({
     String? id,
+    Value<String?> routeId = const Value.absent(),
     String? clientId,
     DateTime? checkinAt,
     double? latitude,
@@ -288,6 +321,7 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
     bool? synced,
   }) => PendingCheckin(
     id: id ?? this.id,
+    routeId: routeId.present ? routeId.value : this.routeId,
     clientId: clientId ?? this.clientId,
     checkinAt: checkinAt ?? this.checkinAt,
     latitude: latitude ?? this.latitude,
@@ -298,6 +332,7 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
   PendingCheckin copyWithCompanion(PendingCheckinsCompanion data) {
     return PendingCheckin(
       id: data.id.present ? data.id.value : this.id,
+      routeId: data.routeId.present ? data.routeId.value : this.routeId,
       clientId: data.clientId.present ? data.clientId.value : this.clientId,
       checkinAt: data.checkinAt.present ? data.checkinAt.value : this.checkinAt,
       latitude: data.latitude.present ? data.latitude.value : this.latitude,
@@ -311,6 +346,7 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
   String toString() {
     return (StringBuffer('PendingCheckin(')
           ..write('id: $id, ')
+          ..write('routeId: $routeId, ')
           ..write('clientId: $clientId, ')
           ..write('checkinAt: $checkinAt, ')
           ..write('latitude: $latitude, ')
@@ -324,6 +360,7 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
   @override
   int get hashCode => Object.hash(
     id,
+    routeId,
     clientId,
     checkinAt,
     latitude,
@@ -336,6 +373,7 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
       identical(this, other) ||
       (other is PendingCheckin &&
           other.id == this.id &&
+          other.routeId == this.routeId &&
           other.clientId == this.clientId &&
           other.checkinAt == this.checkinAt &&
           other.latitude == this.latitude &&
@@ -346,6 +384,7 @@ class PendingCheckin extends DataClass implements Insertable<PendingCheckin> {
 
 class PendingCheckinsCompanion extends UpdateCompanion<PendingCheckin> {
   final Value<String> id;
+  final Value<String?> routeId;
   final Value<String> clientId;
   final Value<DateTime> checkinAt;
   final Value<double> latitude;
@@ -355,6 +394,7 @@ class PendingCheckinsCompanion extends UpdateCompanion<PendingCheckin> {
   final Value<int> rowid;
   const PendingCheckinsCompanion({
     this.id = const Value.absent(),
+    this.routeId = const Value.absent(),
     this.clientId = const Value.absent(),
     this.checkinAt = const Value.absent(),
     this.latitude = const Value.absent(),
@@ -365,6 +405,7 @@ class PendingCheckinsCompanion extends UpdateCompanion<PendingCheckin> {
   });
   PendingCheckinsCompanion.insert({
     required String id,
+    this.routeId = const Value.absent(),
     required String clientId,
     required DateTime checkinAt,
     required double latitude,
@@ -379,6 +420,7 @@ class PendingCheckinsCompanion extends UpdateCompanion<PendingCheckin> {
        longitude = Value(longitude);
   static Insertable<PendingCheckin> custom({
     Expression<String>? id,
+    Expression<String>? routeId,
     Expression<String>? clientId,
     Expression<DateTime>? checkinAt,
     Expression<double>? latitude,
@@ -389,6 +431,7 @@ class PendingCheckinsCompanion extends UpdateCompanion<PendingCheckin> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
+      if (routeId != null) 'route_id': routeId,
       if (clientId != null) 'client_id': clientId,
       if (checkinAt != null) 'checkin_at': checkinAt,
       if (latitude != null) 'latitude': latitude,
@@ -401,6 +444,7 @@ class PendingCheckinsCompanion extends UpdateCompanion<PendingCheckin> {
 
   PendingCheckinsCompanion copyWith({
     Value<String>? id,
+    Value<String?>? routeId,
     Value<String>? clientId,
     Value<DateTime>? checkinAt,
     Value<double>? latitude,
@@ -411,6 +455,7 @@ class PendingCheckinsCompanion extends UpdateCompanion<PendingCheckin> {
   }) {
     return PendingCheckinsCompanion(
       id: id ?? this.id,
+      routeId: routeId ?? this.routeId,
       clientId: clientId ?? this.clientId,
       checkinAt: checkinAt ?? this.checkinAt,
       latitude: latitude ?? this.latitude,
@@ -426,6 +471,9 @@ class PendingCheckinsCompanion extends UpdateCompanion<PendingCheckin> {
     final map = <String, Expression>{};
     if (id.present) {
       map['id'] = Variable<String>(id.value);
+    }
+    if (routeId.present) {
+      map['route_id'] = Variable<String>(routeId.value);
     }
     if (clientId.present) {
       map['client_id'] = Variable<String>(clientId.value);
@@ -455,6 +503,7 @@ class PendingCheckinsCompanion extends UpdateCompanion<PendingCheckin> {
   String toString() {
     return (StringBuffer('PendingCheckinsCompanion(')
           ..write('id: $id, ')
+          ..write('routeId: $routeId, ')
           ..write('clientId: $clientId, ')
           ..write('checkinAt: $checkinAt, ')
           ..write('latitude: $latitude, ')
@@ -1468,6 +1517,7 @@ abstract class _$LocalDatabase extends GeneratedDatabase {
 typedef $$PendingCheckinsTableCreateCompanionBuilder =
     PendingCheckinsCompanion Function({
       required String id,
+      Value<String?> routeId,
       required String clientId,
       required DateTime checkinAt,
       required double latitude,
@@ -1479,6 +1529,7 @@ typedef $$PendingCheckinsTableCreateCompanionBuilder =
 typedef $$PendingCheckinsTableUpdateCompanionBuilder =
     PendingCheckinsCompanion Function({
       Value<String> id,
+      Value<String?> routeId,
       Value<String> clientId,
       Value<DateTime> checkinAt,
       Value<double> latitude,
@@ -1499,6 +1550,11 @@ class $$PendingCheckinsTableFilterComposer
   });
   ColumnFilters<String> get id => $composableBuilder(
     column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get routeId => $composableBuilder(
+    column: $table.routeId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1547,6 +1603,11 @@ class $$PendingCheckinsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get routeId => $composableBuilder(
+    column: $table.routeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get clientId => $composableBuilder(
     column: $table.clientId,
     builder: (column) => ColumnOrderings(column),
@@ -1589,6 +1650,9 @@ class $$PendingCheckinsTableAnnotationComposer
   });
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get routeId =>
+      $composableBuilder(column: $table.routeId, builder: (column) => column);
 
   GeneratedColumn<String> get clientId =>
       $composableBuilder(column: $table.clientId, builder: (column) => column);
@@ -1647,6 +1711,7 @@ class $$PendingCheckinsTableTableManager
           updateCompanionCallback:
               ({
                 Value<String> id = const Value.absent(),
+                Value<String?> routeId = const Value.absent(),
                 Value<String> clientId = const Value.absent(),
                 Value<DateTime> checkinAt = const Value.absent(),
                 Value<double> latitude = const Value.absent(),
@@ -1656,6 +1721,7 @@ class $$PendingCheckinsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => PendingCheckinsCompanion(
                 id: id,
+                routeId: routeId,
                 clientId: clientId,
                 checkinAt: checkinAt,
                 latitude: latitude,
@@ -1667,6 +1733,7 @@ class $$PendingCheckinsTableTableManager
           createCompanionCallback:
               ({
                 required String id,
+                Value<String?> routeId = const Value.absent(),
                 required String clientId,
                 required DateTime checkinAt,
                 required double latitude,
@@ -1676,6 +1743,7 @@ class $$PendingCheckinsTableTableManager
                 Value<int> rowid = const Value.absent(),
               }) => PendingCheckinsCompanion.insert(
                 id: id,
+                routeId: routeId,
                 clientId: clientId,
                 checkinAt: checkinAt,
                 latitude: latitude,

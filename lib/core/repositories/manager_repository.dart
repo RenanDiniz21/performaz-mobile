@@ -23,7 +23,7 @@ class ManagerRepository {
   // --- Live Map ---
 
   Future<List<Map<String, dynamic>>> fetchVendorLocations() async {
-    final response = await apiClient.get('/gamification/vendor-locations');
+    final response = await apiClient.get('/gamification/map');
     return (response.data as List).cast<Map<String, dynamic>>();
   }
 
@@ -63,12 +63,15 @@ class ManagerRepository {
     required bool targetAll,
     List<String>? vendorIds,
   }) async {
-    await apiClient.post('/notifications', data: {
-      'title': title,
-      'message': message,
-      'type': 'info',
-      'targetAll': targetAll,
-      'targetVendorIds': vendorIds,
-    });
+    await apiClient.post(
+      '/notifications',
+      data: {
+        'title': title,
+        'message': message,
+        'type': 'info',
+        'targetAll': targetAll,
+        'targetVendorIds': vendorIds,
+      },
+    );
   }
 }

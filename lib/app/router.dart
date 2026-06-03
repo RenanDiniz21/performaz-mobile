@@ -9,14 +9,7 @@ import '../features/auth/profile_screen.dart';
 import '../features/gamification/achievements_screen.dart';
 import '../features/gamification/gamification_dashboard.dart';
 import '../features/gamification/leaderboard_screen.dart';
-import '../features/manager/crud/clients_crud.dart';
-import '../features/manager/crud/products_crud.dart';
-import '../features/manager/crud/sellers_crud.dart';
-import '../features/manager/dashboard_screen.dart';
-import '../features/manager/goals_screen.dart';
-import '../features/manager/live_map_screen.dart';
-import '../features/manager/notifications_screen.dart';
-import '../features/manager/routes_builder.dart';
+import '../features/manager/manager_handoff_screen.dart';
 import '../features/orders/cart_screen.dart';
 import '../features/orders/no_sale_screen.dart';
 import '../features/orders/order_summary_screen.dart';
@@ -26,10 +19,10 @@ import '../features/routes/client_detail_screen.dart';
 import '../features/routes/route_list_screen.dart';
 import '../features/routes/route_cubit.dart';
 import '../shared/models/route.dart' as models;
-import '../shared/models/user.dart';
+import 'role_home_route.dart';
 import 'shell/seller_shell.dart';
-import 'shell/manager_shell.dart';
 import '../core/network/api_client.dart';
+import '../core/repositories/crud_repository.dart';
 import '../core/storage/secure_storage.dart';
 import 'di.dart';
 
@@ -44,10 +37,7 @@ class AppRouter {
     redirect: _redirect,
     routes: [
       // --- Auth routes ---
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
@@ -58,7 +48,11 @@ class AppRouter {
         builder: (context, state, child) => MultiBlocProvider(
           providers: [
             BlocProvider(create: (_) => CartCubit()),
-            BlocProvider(create: (_) => ProductCatalogCubit()),
+            BlocProvider(
+              create: (_) => ProductCatalogCubit(
+                productSource: ApiProductSource(getIt<CrudRepository>()),
+              )..loadProducts(),
+            ),
             BlocProvider(
               create: (_) => RouteCubit(
                 apiClient: getIt<ApiClient>(),
@@ -75,15 +69,13 @@ class AppRouter {
           ),
           GoRoute(
             path: '/routes/:clientId',
-            builder: (context, state) => ClientDetailScreen(
-              stop: state.extra! as models.RouteStop,
-            ),
+            builder: (context, state) =>
+                ClientDetailScreen(stop: state.extra! as models.RouteStop),
           ),
           GoRoute(
             path: '/routes/:clientId/checkin',
-            builder: (context, state) => CheckinScreen(
-              stop: state.extra! as models.RouteStop,
-            ),
+            builder: (context, state) =>
+                CheckinScreen(stop: state.extra! as models.RouteStop),
           ),
           GoRoute(
             path: '/orders/catalog',
@@ -155,50 +147,18 @@ class AppRouter {
         ],
       ),
 
-      // --- Manager shell (web) ---
-      ShellRoute(
-        builder: (context, state, child) => ManagerShell(child: child),
-        routes: [
-          GoRoute(
-            path: '/manager',
-            builder: (context, state) => const DashboardScreen(),
-          ),
-          GoRoute(
-            path: '/manager/sellers',
-            builder: (context, state) => const SellersCrudScreen(),
-          ),
-          GoRoute(
-            path: '/manager/clients',
-            builder: (context, state) => const ClientsCrudScreen(),
-          ),
-          GoRoute(
-            path: '/manager/products',
-            builder: (context, state) => const ProductsCrudScreen(),
-          ),
-          GoRoute(
-            path: '/manager/routes',
-            builder: (context, state) => const RoutesBuilderScreen(),
-          ),
-          GoRoute(
-            path: '/manager/map',
-            builder: (context, state) => const LiveMapScreen(),
-          ),
-          GoRoute(
-            path: '/manager/goals',
-            builder: (context, state) => const GoalsScreen(),
-          ),
-          GoRoute(
-            path: '/manager/notifications',
-            builder: (context, state) => const NotificationsScreen(),
-          ),
-        ],
+      // --- Manager handoff ---
+      GoRoute(
+        path: '/manager',
+        builder: (context, state) => const ManagerHandoffScreen(),
       ),
     ],
   );
 
   String? _redirect(BuildContext context, GoRouterState state) {
     final authState = authBloc.state;
-    final isLoginRoute = state.matchedLocation == '/login' ||
+    final isLoginRoute =
+        state.matchedLocation == '/login' ||
         state.matchedLocation == '/forgot-password';
 
     if (authState is AuthUnauthenticated && !isLoginRoute) {
@@ -206,7 +166,7 @@ class AppRouter {
     }
 
     if (authState is AuthAuthenticated && isLoginRoute) {
-      return authState.user.role == UserRole.gestor ? '/manager' : '/routes';
+      return homeRouteForRole(authState.user.role);
     }
 
     return null;

@@ -11,6 +11,7 @@ import '../../core/repositories/gamification_repository.dart';
 import '../../shared/models/achievement.dart';
 import '../../shared/models/user.dart';
 import '../../shared/widgets/stat_card.dart';
+import 'seller_goal_progress.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -26,6 +27,7 @@ class GamificationDashboardState extends Equatable {
     this.weeklyScore = 0,
     this.dailyTrend,
     this.weeklyTrend,
+    this.goals = const [],
     this.nextAchievements = const [],
     this.recentXpEvents = const [],
     this.isLoading = true,
@@ -38,6 +40,7 @@ class GamificationDashboardState extends Equatable {
   final int weeklyScore;
   final String? dailyTrend;
   final String? weeklyTrend;
+  final List<SellerGoalProgress> goals;
   final List<Achievement> nextAchievements;
   final List<XpEvent> recentXpEvents;
   final bool isLoading;
@@ -54,6 +57,7 @@ class GamificationDashboardState extends Equatable {
     int? weeklyScore,
     String? dailyTrend,
     String? weeklyTrend,
+    List<SellerGoalProgress>? goals,
     List<Achievement>? nextAchievements,
     List<XpEvent>? recentXpEvents,
     bool? isLoading,
@@ -67,6 +71,7 @@ class GamificationDashboardState extends Equatable {
       weeklyScore: weeklyScore ?? this.weeklyScore,
       dailyTrend: dailyTrend ?? this.dailyTrend,
       weeklyTrend: weeklyTrend ?? this.weeklyTrend,
+      goals: goals ?? this.goals,
       nextAchievements: nextAchievements ?? this.nextAchievements,
       recentXpEvents: recentXpEvents ?? this.recentXpEvents,
       isLoading: isLoading ?? this.isLoading,
@@ -83,6 +88,7 @@ class GamificationDashboardState extends Equatable {
         weeklyScore,
         dailyTrend,
         weeklyTrend,
+        goals,
         nextAchievements,
         recentXpEvents,
         isLoading,
@@ -103,7 +109,12 @@ class GamificationDashboardCubit extends Cubit<GamificationDashboardState> {
   Future<void> load(String vendorId) async {
     emit(state.copyWith(isLoading: true, error: null));
     try {
-      final stats = await repository.fetchVendorStats(vendorId);
+      final results = await Future.wait([
+        repository.fetchVendorStats(vendorId),
+        repository.fetchVendorGoals(vendorId),
+      ]);
+      final stats = results[0] as Map<String, dynamic>;
+      final goals = sellerGoalsFromApi(results[1] as List<dynamic>);
 
       final vendor = stats['vendor'] as Map<String, dynamic>;
       final xp = vendor['xp'] as int? ?? 0;
@@ -148,6 +159,7 @@ class GamificationDashboardCubit extends Cubit<GamificationDashboardState> {
         weeklyScore: weeklyScore,
         dailyTrend: '+10%',
         weeklyTrend: '+15%',
+        goals: goals,
         nextAchievements: achievements,
         recentXpEvents: xpEvents,
       ));
@@ -242,6 +254,8 @@ class GamificationDashboard extends StatelessWidget {
                     dailyTrend: state.dailyTrend,
                     weeklyTrend: state.weeklyTrend,
                   ),
+                  const SizedBox(height: 24),
+                  _GoalProgressSection(goals: state.goals),
                   const SizedBox(height: 24),
                   _NextAchievements(achievements: state.nextAchievements),
                   const SizedBox(height: 24),
@@ -446,6 +460,94 @@ class _ScoreCards extends StatelessWidget {
             value: '$weeklyScore',
             icon: Icons.date_range,
             trend: weeklyTrend,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Goal Progress
+// ---------------------------------------------------------------------------
+
+class _GoalProgressSection extends StatelessWidget {
+  const _GoalProgressSection({required this.goals});
+
+  final List<SellerGoalProgress> goals;
+
+  @override
+  Widget build(BuildContext context) {
+    if (goals.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Minhas Metas', style: AppTypography.displaySmall),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: AppRadius.lgBorder,
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            children: goals.indexed.map((entry) {
+              final (index, goal) = entry;
+              return Column(
+                children: [
+                  if (index > 0)
+                    const Divider(height: 1, color: AppColors.border),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                goal.title,
+                                style: AppTypography.bodyMedium.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              '${(goal.progress * 100).round()}%',
+                              style: AppTypography.bodySmall.copyWith(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: AppRadius.smBorder,
+                          child: LinearProgressIndicator(
+                            value: goal.progress,
+                            minHeight: 8,
+                            backgroundColor: AppColors.muted,
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppColors.primary,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${goal.formattedCurrent} / ${goal.formattedTarget}',
+                          style: AppTypography.label,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
           ),
         ),
       ],

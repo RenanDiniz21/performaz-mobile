@@ -12,9 +12,16 @@ class GamificationRepository {
   }
 
   Future<List<Achievement>> fetchAchievements(String vendorId) async {
-    final response = await apiClient.get('/gamification/vendors/$vendorId/achievements');
-    final list = response.data as List;
-    return list.map((e) => Achievement.fromJson(e as Map<String, dynamic>)).toList();
+    final stats = await fetchVendorStats(vendorId);
+    return achievementsFromVendorStats(stats);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchVendorGoals(String vendorId) async {
+    final response = await apiClient.get(
+      '/goals',
+      queryParameters: {'vendorId': vendorId},
+    );
+    return (response.data as List).cast<Map<String, dynamic>>();
   }
 
   Future<List<Map<String, dynamic>>> fetchLeaderboard({
@@ -28,4 +35,11 @@ class GamificationRepository {
     );
     return (response.data as List).cast<Map<String, dynamic>>();
   }
+}
+
+List<Achievement> achievementsFromVendorStats(Map<String, dynamic> stats) {
+  final list = stats['achievements'] as List? ?? [];
+  return list
+      .map((e) => Achievement.fromJson(e as Map<String, dynamic>))
+      .toList();
 }

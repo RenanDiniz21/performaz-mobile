@@ -7,6 +7,7 @@ import 'package:equatable/equatable.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/repositories/crud_repository.dart';
 import '../../shared/models/product.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/dot_grid_background.dart';
@@ -57,10 +58,35 @@ class ProductCatalogState extends Equatable {
 // Cubit
 // ---------------------------------------------------------------------------
 
-class ProductCatalogCubit extends Cubit<ProductCatalogState> {
-  ProductCatalogCubit() : super(const ProductCatalogState());
+abstract class ProductSource {
+  Future<List<Product>> fetchProducts();
+}
 
-  void loadProducts(List<Product> products) {
+class ApiProductSource implements ProductSource {
+  ApiProductSource(this.repository);
+
+  final CrudRepository repository;
+
+  @override
+  Future<List<Product>> fetchProducts() async {
+    final rows = await repository.fetchProducts();
+    return rows.map(Product.fromJson).toList();
+  }
+}
+
+class ProductCatalogCubit extends Cubit<ProductCatalogState> {
+  ProductCatalogCubit({ProductSource? productSource})
+      : _productSource = productSource,
+        super(const ProductCatalogState());
+
+  final ProductSource? _productSource;
+
+  Future<void> loadProducts([List<Product>? products]) async {
+    final loadedProducts = products ?? await _productSource?.fetchProducts() ?? [];
+    _setProducts(loadedProducts);
+  }
+
+  void _setProducts(List<Product> products) {
     final activeProducts = products.where((p) => p.isActive).toList();
     final categories = activeProducts
         .map((p) => p.category)

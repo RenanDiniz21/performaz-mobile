@@ -9,6 +9,7 @@ import '../../app/di.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
+import '../../core/auth/auth_bloc.dart';
 import '../../core/repositories/gamification_repository.dart';
 import '../../shared/models/achievement.dart';
 
@@ -49,17 +50,10 @@ class AchievementsState extends Equatable {
 
 class AchievementsCubit extends Cubit<AchievementsState> {
   AchievementsCubit({required this.repository})
-      : super(const AchievementsState());
+    : super(const AchievementsState());
 
   final GamificationRepository repository;
 
-  // ════════════════════════════════════════════════════════════════════
-  // 🚧 MOCK — dados falsos para apresentação.
-  //    Para integrar com a API real:
-  //    1. Descomente a linha com repository.fetchAchievements(vendorId)
-  //    2. Remova o Future.delayed e o mock achievements
-  //    3. Rode: flutter pub get && dart run build_runner build
-  // ════════════════════════════════════════════════════════════════════
   Future<void> load(String vendorId) async {
     emit(state.copyWith(isLoading: true));
     try {
@@ -84,10 +78,15 @@ class AchievementsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.read<AuthBloc>().state;
+    final vendorId = authState is AuthAuthenticated
+        ? authState.user.id
+        : 'current';
+
     return BlocProvider(
-      create: (_) => AchievementsCubit(
-        repository: getIt<GamificationRepository>(),
-      )..load('current'),
+      create: (_) =>
+          AchievementsCubit(repository: getIt<GamificationRepository>())
+            ..load(vendorId),
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
@@ -104,10 +103,12 @@ class AchievementsScreen extends StatelessWidget {
               );
             }
 
-            final unlocked =
-                state.achievements.where((a) => a.isUnlocked).toList();
-            final locked =
-                state.achievements.where((a) => !a.isUnlocked).toList();
+            final unlocked = state.achievements
+                .where((a) => a.isUnlocked)
+                .toList();
+            final locked = state.achievements
+                .where((a) => !a.isUnlocked)
+                .toList();
             final sorted = [...unlocked, ...locked];
 
             return GridView.builder(
@@ -121,8 +122,7 @@ class AchievementsScreen extends StatelessWidget {
               itemCount: sorted.length,
               itemBuilder: (context, index) {
                 final achievement = sorted[index];
-                final justUnlocked =
-                    state.justUnlockedId == achievement.id;
+                final justUnlocked = state.justUnlockedId == achievement.id;
 
                 return _AchievementCard(
                   achievement: achievement,
@@ -167,9 +167,10 @@ class _AchievementCardState extends State<_AchievementCard>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _scaleAnim = Tween<double>(begin: 0.7, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 0.7,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.elasticOut));
 
     if (widget.playUnlockAnimation) {
       _triggerAnimation();
@@ -250,8 +251,9 @@ class _AchievementCardState extends State<_AchievementCard>
             a.title,
             style: AppTypography.bodyMedium.copyWith(
               fontWeight: FontWeight.w700,
-              color:
-                  unlocked ? AppColors.foreground : AppColors.mutedForeground,
+              color: unlocked
+                  ? AppColors.foreground
+                  : AppColors.mutedForeground,
             ),
             textAlign: TextAlign.center,
             maxLines: 1,
@@ -315,8 +317,7 @@ class _AchievementCardState extends State<_AchievementCard>
                       width: 6,
                       height: 6,
                       decoration: BoxDecoration(
-                        color:
-                            i.isEven ? AppColors.primary : AppColors.chart2,
+                        color: i.isEven ? AppColors.primary : AppColors.chart2,
                         shape: BoxShape.circle,
                       ),
                     ),

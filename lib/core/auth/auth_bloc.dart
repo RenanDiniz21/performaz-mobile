@@ -37,6 +37,29 @@ class AuthLogoutRequested extends AuthEvent {
   const AuthLogoutRequested();
 }
 
+class AuthProfileUpdateRequested extends AuthEvent {
+  const AuthProfileUpdateRequested({required this.name, required this.phone});
+
+  final String name;
+  final String phone;
+
+  @override
+  List<Object?> get props => [name, phone];
+}
+
+class AuthPasswordChangeRequested extends AuthEvent {
+  const AuthPasswordChangeRequested({
+    required this.currentPassword,
+    required this.newPassword,
+  });
+
+  final String currentPassword;
+  final String newPassword;
+
+  @override
+  List<Object?> get props => [currentPassword, newPassword];
+}
+
 // --- States ---
 
 sealed class AuthState extends Equatable {
@@ -83,6 +106,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<AuthCheckRequested>(_onCheckRequested);
     on<AuthLoginRequested>(_onLoginRequested);
     on<AuthLogoutRequested>(_onLogoutRequested);
+    on<AuthProfileUpdateRequested>(_onProfileUpdateRequested);
+    on<AuthPasswordChangeRequested>(_onPasswordChangeRequested);
   }
 
   final AuthRepository authRepository;
@@ -132,6 +157,45 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(const AuthUnauthenticated());
   }
 
+  Future<void> _onProfileUpdateRequested(
+    AuthProfileUpdateRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    final current = state;
+    if (current is! AuthAuthenticated) return;
+
+    try {
+      final user = await authRepository.updateVendorProfile(
+        vendorId: current.user.id,
+        name: event.name,
+        phone: event.phone,
+      );
+      emit(AuthAuthenticated(user));
+    } catch (e) {
+      emit(AuthError(_parseError(e)));
+      emit(current);
+    }
+  }
+
+  Future<void> _onPasswordChangeRequested(
+    AuthPasswordChangeRequested event,
+    Emitter<AuthState> emit,
+  ) async {
+    final current = state;
+    if (current is! AuthAuthenticated) return;
+
+    try {
+      await authRepository.changeVendorPassword(
+        currentPassword: event.currentPassword,
+        newPassword: event.newPassword,
+      );
+      emit(current);
+    } catch (e) {
+      emit(AuthError(_parseError(e)));
+      emit(current);
+    }
+  }
+
   String _parseError(Object error) {
     if (error is DioException) {
       final data = error.response?.data;
@@ -140,9 +204,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
       return switch (error.type) {
         DioExceptionType.connectionTimeout => 'Sem conexão com o servidor',
-        DioExceptionType.receiveTimeout    => 'Servidor demorou muito para responder',
-        DioExceptionType.badResponse       => 'Erro ${error.response?.statusCode ?? "desconhecido"}',
-        _                                  => 'Erro de rede',
+        DioExceptionType.receiveTimeout =>
+          'Servidor demorou muito para responder',
+        DioExceptionType.badResponse =>
+          'Erro ${error.response?.statusCode ?? "desconhecido"}',
+        _ => 'Erro de rede',
       };
     }
     return error.toString();

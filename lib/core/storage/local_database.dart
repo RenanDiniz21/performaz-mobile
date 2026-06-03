@@ -8,6 +8,7 @@ part 'local_database.g.dart';
 
 class PendingCheckins extends Table {
   TextColumn get id => text()();
+  TextColumn get routeId => text().nullable()();
   TextColumn get clientId => text()();
   DateTimeColumn get checkinAt => dateTime()();
   RealColumn get latitude => real()();
@@ -57,7 +58,16 @@ class LocalDatabase extends _$LocalDatabase {
   LocalDatabase(super.e);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(pendingCheckins, pendingCheckins.routeId);
+          }
+        },
+      );
 
   // --- Pending checkins ---
   Future<int> getPendingCheckinCount() async {

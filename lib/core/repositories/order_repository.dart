@@ -19,4 +19,46 @@ class OrderRepository {
     final response = await apiClient.get('/orders/$id');
     return Order.fromJson(response.data as Map<String, dynamic>);
   }
+
+  Future<Order> createOrder({
+    required String vendorId,
+    required String clientId,
+    required List<OrderItem> items,
+    String? notes,
+  }) async {
+    final response = await apiClient.post(
+      '/orders',
+      data: buildCreateOrderPayload(
+        vendorId: vendorId,
+        clientId: clientId,
+        items: items,
+        notes: notes,
+      ),
+    );
+    return Order.fromJson(response.data as Map<String, dynamic>);
+  }
+}
+
+Map<String, dynamic> buildCreateOrderPayload({
+  required String vendorId,
+  required String clientId,
+  required List<OrderItem> items,
+  String? notes,
+}) {
+  final trimmedNotes = notes?.trim();
+
+  return {
+    'vendorId': vendorId,
+    'clientId': clientId,
+    'items': items
+        .map(
+          (item) => {
+            'productId': item.product.id,
+            'quantity': item.quantity,
+            'unitPrice': item.product.unitPrice,
+          },
+        )
+        .toList(),
+    'notes': trimmedNotes == null || trimmedNotes.isEmpty ? null : trimmedNotes,
+  };
 }

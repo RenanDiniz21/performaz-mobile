@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/role_home_route.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/auth/auth_bloc.dart';
+import '../../core/auth/login_identifier.dart';
 import '../../shared/widgets/dot_grid_background.dart';
+import 'auth_action_message.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,22 +39,36 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     context.read<AuthBloc>().add(
-          AuthLoginRequested(
-            identifier: _identifierController.text.trim(),
-            password: _passwordController.text,
-            rememberMe: _rememberMe,
-          ),
-        );
+      AuthLoginRequested(
+        identifier: _identifierController.text.trim(),
+        password: _passwordController.text,
+        rememberMe: _rememberMe,
+      ),
+    );
+  }
+
+  void _showUnavailableAction(AuthAction action) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(unavailableAuthActionMessage(action))),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
+    final bgColor = isDark
+        ? AppColors.backgroundDark
+        : AppColors.backgroundLight;
     final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
-    final fgColor = isDark ? AppColors.foregroundDark : AppColors.foregroundLight;
-    final mutedFg = isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight;
-    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primaryLight;
+    final fgColor = isDark
+        ? AppColors.foregroundDark
+        : AppColors.foregroundLight;
+    final mutedFg = isDark
+        ? AppColors.mutedForegroundDark
+        : AppColors.mutedForegroundLight;
+    final primaryColor = isDark
+        ? AppColors.primaryDark
+        : AppColors.primaryLight;
     final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
 
     return Scaffold(
@@ -59,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
-            context.go('/routes');
+            context.go(homeRouteForRole(state.user.role));
           } else if (state is AuthError) {
             setState(() {
               _remainingAttempts = (_remainingAttempts - 1).clamp(0, 5);
@@ -80,7 +97,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
-                      colors: [primaryColor.withValues(alpha: 0.15), Colors.transparent],
+                      colors: [
+                        primaryColor.withValues(alpha: 0.15),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
                 ),
@@ -94,7 +114,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
-                      colors: [const Color(0xFF8B5CF6).withValues(alpha: 0.15), Colors.transparent],
+                      colors: [
+                        const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                        Colors.transparent,
+                      ],
                     ),
                   ),
                 ),
@@ -103,7 +126,10 @@ class _LoginScreenState extends State<LoginScreen> {
               // Content
               Center(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 48,
+                  ),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 400),
                     child: Column(
@@ -119,21 +145,28 @@ class _LoginScreenState extends State<LoginScreen> {
                                 color: primaryColor,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.bolt, color: Colors.white, size: 24),
+                              child: const Icon(
+                                Icons.bolt,
+                                color: Colors.white,
+                                size: 24,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             Text(
                               'Performaz',
-                              style: AppTypography.display(28).copyWith(color: fgColor),
+                              style: AppTypography.display(
+                                28,
+                              ).copyWith(color: fgColor),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Painel de Gestão',
-                          style: AppTypography.body(16, weight: FontWeight.w500).copyWith(
-                            color: primaryColor,
-                          ),
+                          style: AppTypography.body(
+                            16,
+                            weight: FontWeight.w500,
+                          ).copyWith(color: primaryColor),
                         ),
                         const SizedBox(height: 40),
 
@@ -152,12 +185,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               children: [
                                 Text(
                                   'Entre na sua conta',
-                                  style: AppTypography.title(22).copyWith(color: fgColor),
+                                  style: AppTypography.title(
+                                    22,
+                                  ).copyWith(color: fgColor),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   'Use suas credenciais para acessar',
-                                  style: AppTypography.body(15).copyWith(color: mutedFg),
+                                  style: AppTypography.body(
+                                    15,
+                                  ).copyWith(color: mutedFg),
                                 ),
                                 const SizedBox(height: 24),
 
@@ -166,32 +203,57 @@ class _LoginScreenState extends State<LoginScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: AppColors.statusError.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                                      color: AppColors.statusError.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      borderRadius: BorderRadius.circular(
+                                        AppRadius.sm,
+                                      ),
                                     ),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           _errorMessage!,
-                                          style: AppTypography.body(12).copyWith(color: AppColors.statusError),
+                                          style: AppTypography.body(12)
+                                              .copyWith(
+                                                color: AppColors.statusError,
+                                              ),
                                         ),
-                                        if (_remainingAttempts < 5 && _remainingAttempts > 0)
+                                        if (_remainingAttempts < 5 &&
+                                            _remainingAttempts > 0)
                                           Padding(
-                                            padding: const EdgeInsets.only(top: 4),
+                                            padding: const EdgeInsets.only(
+                                              top: 4,
+                                            ),
                                             child: Text(
                                               'Tentativas restantes: $_remainingAttempts',
-                                              style: AppTypography.body(12, weight: FontWeight.w600)
-                                                  .copyWith(color: AppColors.statusError),
+                                              style:
+                                                  AppTypography.body(
+                                                    12,
+                                                    weight: FontWeight.w600,
+                                                  ).copyWith(
+                                                    color:
+                                                        AppColors.statusError,
+                                                  ),
                                             ),
                                           ),
                                         if (_remainingAttempts == 0)
                                           Padding(
-                                            padding: const EdgeInsets.only(top: 4),
+                                            padding: const EdgeInsets.only(
+                                              top: 4,
+                                            ),
                                             child: Text(
                                               'Conta bloqueada. Entre em contato com o gestor.',
-                                              style: AppTypography.body(12, weight: FontWeight.w600)
-                                                  .copyWith(color: AppColors.statusError),
+                                              style:
+                                                  AppTypography.body(
+                                                    12,
+                                                    weight: FontWeight.w600,
+                                                  ).copyWith(
+                                                    color:
+                                                        AppColors.statusError,
+                                                  ),
                                             ),
                                           ),
                                       ],
@@ -202,43 +264,56 @@ class _LoginScreenState extends State<LoginScreen> {
 
                                 // Identifier field
                                 Text(
-                                  'E-mail',
-                                  style: AppTypography.body(14, weight: FontWeight.w500).copyWith(color: fgColor),
+                                  'E-mail ou matricula',
+                                  style: AppTypography.body(
+                                    14,
+                                    weight: FontWeight.w500,
+                                  ).copyWith(color: fgColor),
                                 ),
                                 const SizedBox(height: 8),
                                 TextFormField(
                                   controller: _identifierController,
-                                  keyboardType: TextInputType.emailAddress,
+                                  keyboardType: TextInputType.text,
                                   textInputAction: TextInputAction.next,
-                                  style: AppTypography.body(15).copyWith(color: fgColor),
+                                  style: AppTypography.body(
+                                    15,
+                                  ).copyWith(color: fgColor),
                                   decoration: _inputDecoration(
-                                    hintText: 'nome@empresa.com',
+                                    hintText: 'V001 ou nome@empresa.com',
                                     prefixIcon: Icons.mail_outline,
                                     isDark: isDark,
                                   ),
                                   validator: (value) {
-                                    if (value == null || value.trim().isEmpty) {
-                                      return 'Informe seu e-mail';
-                                    }
-                                    return null;
+                                    return validateLoginIdentifier(value ?? '');
                                   },
                                 ),
                                 const SizedBox(height: 16),
 
                                 // Password field
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'Senha',
-                                      style: AppTypography.body(14, weight: FontWeight.w500).copyWith(color: fgColor),
+                                    Expanded(
+                                      child: Text(
+                                        'Senha',
+                                        style: AppTypography.body(
+                                          14,
+                                          weight: FontWeight.w500,
+                                        ).copyWith(color: fgColor),
+                                      ),
                                     ),
                                     GestureDetector(
-                                      onTap: () => context.push('/forgot-password'),
+                                      onTap: () =>
+                                          context.push('/forgot-password'),
                                       child: Text(
                                         'Esqueceu a senha?',
-                                        style: AppTypography.body(14, weight: FontWeight.w600)
-                                            .copyWith(color: primaryColor),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.body(
+                                          14,
+                                          weight: FontWeight.w600,
+                                        ).copyWith(color: primaryColor),
                                       ),
                                     ),
                                   ],
@@ -248,7 +323,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                   controller: _passwordController,
                                   obscureText: _obscurePassword,
                                   textInputAction: TextInputAction.done,
-                                  style: AppTypography.body(15).copyWith(color: fgColor),
+                                  style: AppTypography.body(
+                                    15,
+                                  ).copyWith(color: fgColor),
                                   onFieldSubmitted: (_) => _submit(),
                                   decoration: _inputDecoration(
                                     hintText: '••••••••',
@@ -262,8 +339,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                         size: 20,
                                         color: mutedFg,
                                       ),
-                                      onPressed: () =>
-                                          setState(() => _obscurePassword = !_obscurePassword),
+                                      onPressed: () => setState(
+                                        () => _obscurePassword =
+                                            !_obscurePassword,
+                                      ),
                                     ),
                                   ),
                                   validator: (value) {
@@ -283,18 +362,27 @@ class _LoginScreenState extends State<LoginScreen> {
                                       width: 24,
                                       child: Checkbox(
                                         value: _rememberMe,
-                                        onChanged: (v) =>
-                                            setState(() => _rememberMe = v ?? false),
+                                        onChanged: (v) => setState(
+                                          () => _rememberMe = v ?? false,
+                                        ),
                                         activeColor: primaryColor,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    Text(
-                                      'Lembrar de mim por 30 dias',
-                                      style: AppTypography.body(14).copyWith(color: mutedFg),
+                                    Expanded(
+                                      child: Text(
+                                        'Lembrar de mim por 30 dias',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.body(
+                                          14,
+                                        ).copyWith(color: mutedFg),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -306,9 +394,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                     final isLoading = state is AuthLoading;
                                     return ElevatedButton(
                                       onPressed:
-                                          isLoading || _remainingAttempts == 0 ? null : _submit,
+                                          isLoading || _remainingAttempts == 0
+                                          ? null
+                                          : _submit,
                                       style: ElevatedButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(vertical: 16),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 16,
+                                        ),
                                         backgroundColor: primaryColor,
                                       ),
                                       child: isLoading
@@ -321,11 +413,15 @@ class _LoginScreenState extends State<LoginScreen> {
                                               ),
                                             )
                                           : Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               children: const [
                                                 Text('Entrar no painel'),
                                                 SizedBox(width: 8),
-                                                Icon(Icons.arrow_forward, size: 18),
+                                                Icon(
+                                                  Icons.arrow_forward,
+                                                  size: 18,
+                                                ),
                                               ],
                                             ),
                                     );
@@ -336,27 +432,37 @@ class _LoginScreenState extends State<LoginScreen> {
                                 // Divider
                                 Row(
                                   children: [
-                                    Expanded(child: Divider(color: borderColor)),
+                                    Expanded(
+                                      child: Divider(color: borderColor),
+                                    ),
                                     Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                      ),
                                       child: Text(
                                         'OU CONTINUE COM',
-                                        style: AppTypography.body(12, weight: FontWeight.w600)
-                                            .copyWith(color: mutedFg),
+                                        style: AppTypography.body(
+                                          12,
+                                          weight: FontWeight.w600,
+                                        ).copyWith(color: mutedFg),
                                       ),
                                     ),
-                                    Expanded(child: Divider(color: borderColor)),
+                                    Expanded(
+                                      child: Divider(color: borderColor),
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 24),
 
                                 // Google button
                                 OutlinedButton(
-                                  onPressed: () {
-                                    // Placeholder
-                                  },
+                                  onPressed: () => _showUnavailableAction(
+                                    AuthAction.googleSignIn,
+                                  ),
                                   style: OutlinedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     side: BorderSide(color: borderColor),
                                     backgroundColor: cardColor,
                                   ),
@@ -373,15 +479,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                         child: Center(
                                           child: Text(
                                             'G',
-                                            style: AppTypography.body(16, weight: FontWeight.w700)
-                                                .copyWith(color: primaryColor),
+                                            style: AppTypography.body(
+                                              16,
+                                              weight: FontWeight.w700,
+                                            ).copyWith(color: primaryColor),
                                           ),
                                         ),
                                       ),
                                       const SizedBox(width: 12),
-                                      Text(
-                                        'Continuar com Google',
-                                        style: AppTypography.body(14).copyWith(color: fgColor),
+                                      Flexible(
+                                        child: Text(
+                                          'Continuar com Google',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: AppTypography.body(
+                                            14,
+                                          ).copyWith(color: fgColor),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -391,18 +505,22 @@ class _LoginScreenState extends State<LoginScreen> {
                                 // Footer
                                 Center(
                                   child: GestureDetector(
-                                    onTap: () {
-                                      // Register placeholder
-                                    },
+                                    onTap: () => _showUnavailableAction(
+                                      AuthAction.selfRegistration,
+                                    ),
                                     child: RichText(
                                       text: TextSpan(
                                         text: 'Não tem conta? ',
-                                        style: AppTypography.body(14).copyWith(color: mutedFg),
+                                        style: AppTypography.body(
+                                          14,
+                                        ).copyWith(color: mutedFg),
                                         children: [
                                           TextSpan(
                                             text: 'Cadastre-se grátis',
-                                            style: AppTypography.body(14, weight: FontWeight.w600)
-                                                .copyWith(color: primaryColor),
+                                            style: AppTypography.body(
+                                              14,
+                                              weight: FontWeight.w600,
+                                            ).copyWith(color: primaryColor),
                                           ),
                                         ],
                                       ),
@@ -432,14 +550,20 @@ class _LoginScreenState extends State<LoginScreen> {
     required bool isDark,
     Widget? suffixIcon,
   }) {
-    final mutedFg = isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight;
+    final mutedFg = isDark
+        ? AppColors.mutedForegroundDark
+        : AppColors.mutedForegroundLight;
     final fillColor = isDark ? AppColors.mutedDark : AppColors.mutedLight;
     final borderColor = isDark ? AppColors.borderDark : AppColors.borderLight;
-    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primaryLight;
+    final primaryColor = isDark
+        ? AppColors.primaryDark
+        : AppColors.primaryLight;
 
     return InputDecoration(
       hintText: hintText,
-      hintStyle: AppTypography.body(15).copyWith(color: mutedFg.withValues(alpha: 0.6)),
+      hintStyle: AppTypography.body(
+        15,
+      ).copyWith(color: mutedFg.withValues(alpha: 0.6)),
       prefixIcon: Icon(prefixIcon, size: 20, color: mutedFg),
       suffixIcon: suffixIcon,
       filled: true,

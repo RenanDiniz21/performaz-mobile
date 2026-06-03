@@ -10,10 +10,13 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/auth/auth_bloc.dart';
+import '../../core/repositories/order_repository.dart';
 import '../../core/storage/local_database.dart';
 import '../../core/sync/sync_service.dart';
 import '../../shared/widgets/app_card.dart';
+import '../routes/route_cubit.dart';
 import 'cart_screen.dart';
+import 'order_submission.dart';
 
 class OrderSummaryScreen extends StatelessWidget {
   const OrderSummaryScreen({super.key});
@@ -30,29 +33,49 @@ class OrderSummaryScreen extends StatelessWidget {
     if (authState is! AuthAuthenticated) return;
     final sellerId = authState.user.id;
 
-    final itemsJson = jsonEncode(cartState.items.map((i) => {
-      'productId': i.product.id,
-      'quantity': i.quantity,
-      'unitPrice': i.product.unitPrice,
-    }).toList());
+    final itemsJson = jsonEncode(
+      cartState.items
+          .map((i) => {
+                'productId': i.product.id,
+                'quantity': i.quantity,
+                'unitPrice': i.product.unitPrice,
+              })
+          .toList(),
+    );
 
-    final orderId = DateTime.now().toIso8601String();
-
+    late final OrderSubmissionResult result;
     try {
-      final db = getIt<LocalDatabase>();
-      await db.insertOrder(
-        PendingOrdersCompanion.insert(
-          id: orderId,
-          clientId: cartState.clientId!,
-          sellerId: sellerId,
-          itemsJson: itemsJson,
-          notes: drift.Value(cartState.notes.isNotEmpty ? cartState.notes : null),
-          createdAt: DateTime.now(),
-        ),
+      result = await submitOrderOnlineFirst(
+        createRemoteOrder: () async {
+          await getIt<OrderRepository>().createOrder(
+            vendorId: sellerId,
+            clientId: cartState.clientId!,
+            items: cartState.items,
+            notes: cartState.notes,
+          );
+        },
+        savePendingOrder: () async {
+          final orderId = DateTime.now().toIso8601String();
+          await getIt<LocalDatabase>().insertOrder(
+            PendingOrdersCompanion.insert(
+              id: orderId,
+              clientId: cartState.clientId!,
+              sellerId: sellerId,
+              itemsJson: itemsJson,
+              notes: drift.Value(
+                cartState.notes.isNotEmpty ? cartState.notes : null,
+              ),
+              createdAt: DateTime.now(),
+            ),
+          );
+        },
       );
-      
-      // Trigger sync
-      getIt<SyncService>().syncAll();
+
+      if (result == OrderSubmissionResult.pendingSync) {
+        getIt<SyncService>().syncAll();
+      }
+      if (!context.mounted) return;
+      context.read<RouteCubit>().markClientSale(cartState.clientId!);
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erro ao salvar pedido')));
@@ -75,7 +98,9 @@ class OrderSummaryScreen extends StatelessWidget {
           ],
         ),
         content: Text(
-          'Pedido registrado e pronto para sincronização!',
+          result == OrderSubmissionResult.synced
+              ? 'Pedido enviado com sucesso. Pontos e metas atualizados!'
+              : 'Pedido registrado e pronto para sincronização!',
           style: AppTypography.body(14),
         ),
         actions: [

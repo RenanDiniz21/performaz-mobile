@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:drift/drift.dart' as drift;
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +10,7 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
 import '../../app/theme/app_typography.dart';
 import '../../core/network/api_client.dart';
+import '../../core/storage/local_database.dart';
 import '../../shared/models/route.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/dot_grid_background.dart';
@@ -136,10 +138,25 @@ class CheckinCubit extends Cubit<CheckinState> {
       });
       emit(state.copyWith(phase: CheckinPhase.success));
     } catch (e) {
-      emit(state.copyWith(
-        phase: CheckinPhase.error,
-        errorMessage: 'Erro ao registrar check-in: $e',
-      ));
+      try {
+        await getIt<LocalDatabase>().insertCheckin(
+          PendingCheckinsCompanion.insert(
+            id: DateTime.now().toIso8601String(),
+            routeId: drift.Value(stop.routeId),
+            clientId: stop.clientId,
+            checkinAt: state.timestamp ?? DateTime.now(),
+            latitude: state.latitude ?? 0,
+            longitude: state.longitude ?? 0,
+            photoPath: drift.Value(state.photoPath),
+          ),
+        );
+        emit(state.copyWith(phase: CheckinPhase.success));
+      } catch (_) {
+        emit(state.copyWith(
+          phase: CheckinPhase.error,
+          errorMessage: 'Erro ao registrar check-in: $e',
+        ));
+      }
     }
   }
 }
