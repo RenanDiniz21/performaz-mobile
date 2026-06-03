@@ -53,6 +53,32 @@ flutter run -d windows --dart-define=API_BASE_URL=http://localhost:3333/api
 
 The API default inside the app is `http://localhost:3333/api`, which works for desktop but not for Android emulator networking.
 
+Run against the deployed API:
+
+```bash
+flutter run --dart-define=API_BASE_URL=https://api.winvex.com.br/api
+```
+
+## APK Build
+
+Build a release APK for manual testing with the deployed API:
+
+```bash
+flutter build apk --release --dart-define=API_BASE_URL=https://api.winvex.com.br/api
+```
+
+Generated file:
+
+```text
+build/app/outputs/flutter-apk/app-release.apk
+```
+
+Current APK caveat:
+
+- The Android `release` build is still configured to use the debug signing config.
+- This is acceptable for manual testing.
+- Play Store distribution still needs a production keystore and preferably an AAB build.
+
 ## Tests
 
 ```bash
@@ -90,5 +116,7 @@ Not finished yet:
 - Full real-device offline sync validation.
 - Avatar/profile photo update.
 - Native mobile manager module.
+- Real-phone release APK validation against `https://api.winvex.com.br/api`.
+- Production Android signing/AAB setup.
 
 The app now shows explicit unavailable states for unfinished auth actions instead of fake success.
