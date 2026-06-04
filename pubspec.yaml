@@ -68,6 +68,9 @@ dependencies:
   # Image caching
   cached_network_image: ^3.4.1
 
+  # URL launcher (phone, maps)
+  url_launcher: ^6.3.1
+
   # Utils
   logger: ^2.5.0
   intl: ^0.20.2

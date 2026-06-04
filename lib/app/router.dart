@@ -9,11 +9,14 @@ import '../features/auth/profile_screen.dart';
 import '../features/gamification/achievements_screen.dart';
 import '../features/gamification/gamification_dashboard.dart';
 import '../features/gamification/leaderboard_screen.dart';
+import '../features/gamification/quests_screen.dart';
 import '../features/manager/manager_handoff_screen.dart';
 import '../features/orders/cart_screen.dart';
 import '../features/orders/no_sale_screen.dart';
-import '../features/orders/order_summary_screen.dart';
 import '../features/orders/product_catalog_screen.dart';
+import '../features/routes/create_route_screen.dart';
+import '../features/routes/navigate_to_client_screen.dart';
+import '../features/routes/route_map_screen.dart';
 import '../features/routes/checkin_screen.dart';
 import '../features/routes/client_detail_screen.dart';
 import '../features/routes/route_list_screen.dart';
@@ -64,6 +67,14 @@ class AppRouter {
         ),
         routes: [
           GoRoute(
+            path: '/routes/map',
+            builder: (context, state) => const RouteMapScreen(),
+          ),
+          GoRoute(
+            path: '/routes/create',
+            builder: (context, state) => const CreateRouteScreen(),
+          ),
+          GoRoute(
             path: '/routes',
             builder: (context, state) => const RouteListScreen(),
           ),
@@ -76,6 +87,11 @@ class AppRouter {
             path: '/routes/:clientId/checkin',
             builder: (context, state) =>
                 CheckinScreen(stop: state.extra! as models.RouteStop),
+          ),
+          GoRoute(
+            path: '/routes/:clientId/navigate',
+            builder: (context, state) =>
+                NavigateToClientScreen(stop: state.extra! as models.RouteStop),
           ),
           GoRoute(
             path: '/orders/catalog',
@@ -92,6 +108,13 @@ class AppRouter {
                 );
               }
 
+              // If no client in extras AND cart has no client, redirect
+              final cartHasClient =
+                  context.read<CartCubit>().state.clientId != null;
+              if (clientId.isEmpty && !cartHasClient) {
+                return const _NoClientCatalogFallback();
+              }
+
               return ProductCatalogScreen(
                 onProductSelected: (product) {
                   context.read<CartCubit>().addProduct(product);
@@ -99,10 +122,6 @@ class AppRouter {
                     SnackBar(
                       content: Text('${product.name} adicionado'),
                       duration: const Duration(seconds: 1),
-                      action: SnackBarAction(
-                        label: 'Ver Carrinho',
-                        onPressed: () => context.push('/orders/cart'),
-                      ),
                     ),
                   );
                 },
@@ -112,10 +131,6 @@ class AppRouter {
           GoRoute(
             path: '/orders/cart',
             builder: (context, state) => const CartScreen(),
-          ),
-          GoRoute(
-            path: '/orders/summary',
-            builder: (context, state) => const OrderSummaryScreen(),
           ),
           GoRoute(
             path: '/orders/no-sale',
@@ -131,6 +146,10 @@ class AppRouter {
           GoRoute(
             path: '/gamification',
             builder: (context, state) => const GamificationDashboard(),
+          ),
+          GoRoute(
+            path: '/gamification/quests',
+            builder: (context, state) => const QuestsScreen(),
           ),
           GoRoute(
             path: '/gamification/achievements',
@@ -185,5 +204,47 @@ class GoRouterRefreshStream extends ChangeNotifier {
   void dispose() {
     _subscription.cancel();
     super.dispose();
+  }
+}
+
+/// Shown when the catalog is accessed without a client context.
+class _NoClientCatalogFallback extends StatelessWidget {
+  const _NoClientCatalogFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Produtos')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.person_search_outlined,
+                  size: 64, color: Colors.grey.withValues(alpha: 0.4)),
+              const SizedBox(height: 16),
+              const Text(
+                'Selecione um cliente primeiro',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Acesse a rota do dia e escolha um cliente para fazer um pedido.',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => context.go('/routes'),
+                icon: const Icon(Icons.route, size: 18),
+                label: const Text('Ir para Rota'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_radius.dart';
@@ -11,6 +12,7 @@ import '../../core/repositories/crud_repository.dart';
 import '../../shared/models/product.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/dot_grid_background.dart';
+import 'cart_screen.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -178,6 +180,8 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
     final bgColor = isDark ? AppColors.backgroundDark : AppColors.backgroundLight;
     final mutedFg = isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight;
 
+    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primaryLight;
+
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -247,8 +251,7 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
                           ),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 80),
                           itemCount: state.filteredProducts.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
@@ -267,6 +270,35 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
           },
         ),
       ),
+      floatingActionButton: BlocBuilder<CartCubit, CartState>(
+        builder: (context, cartState) {
+          if (cartState.isEmpty) return const SizedBox.shrink();
+
+          final itemCount =
+              cartState.items.fold<int>(0, (sum, i) => sum + i.quantity);
+
+          return FloatingActionButton.extended(
+            onPressed: () => context.push('/orders/cart'),
+            backgroundColor: primaryColor,
+            foregroundColor: Colors.white,
+            elevation: 4,
+            icon: Badge(
+              label: Text(
+                '$itemCount',
+                style: AppTypography.body(10, weight: FontWeight.w700)
+                    .copyWith(color: primaryColor),
+              ),
+              backgroundColor: Colors.white,
+              child: const Icon(Icons.shopping_cart, size: 22),
+            ),
+            label: Text(
+              'Ver Carrinho',
+              style: AppTypography.body(14, weight: FontWeight.w600),
+            ),
+          );
+        },
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

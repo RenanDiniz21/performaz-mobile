@@ -43,7 +43,18 @@ class RouteListScreen extends StatelessWidget {
         ],
       ),
       body: DotGridBackground(
-        child: BlocBuilder<RouteCubit, RouteState>(
+        child: BlocConsumer<RouteCubit, RouteState>(
+          listenWhen: (prev, curr) => curr is RouteRefreshFailed,
+          listener: (context, state) {
+            if (state is RouteRefreshFailed) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Sem conexão — mostrando última rota carregada'),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          },
           builder: (context, state) {
             if (state is RouteLoading) {
               return Center(
@@ -72,6 +83,42 @@ class RouteListScreen extends StatelessWidget {
               );
             }
 
+            if (state is RouteEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.route_outlined, size: 64, color: mutedFg.withValues(alpha: 0.4)),
+                    const SizedBox(height: 16),
+                    Text('Nenhuma rota para hoje',
+                        style: AppTypography.body(16).copyWith(color: mutedFg)),
+                    const SizedBox(height: 8),
+                    Text('Crie uma rota selecionando seus clientes',
+                        style: AppTypography.body(13).copyWith(color: mutedFg)),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      height: 48,
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.add_location_alt_outlined, size: 20),
+                        label: Text('Criar Rota',
+                            style: AppTypography.body(15, weight: FontWeight.w600)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: () => context.push('/routes/create'),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }
+
             if (state is RouteLoaded) {
               if (state.stops.isEmpty) {
                 return Center(
@@ -86,28 +133,74 @@ class RouteListScreen extends StatelessWidget {
                 );
               }
 
-              return ReorderableListView.builder(
-                padding: const EdgeInsets.all(16),
-                buildDefaultDragHandles: true,
-                itemCount: state.stops.length,
-                onReorder: (oldIndex, newIndex) {
-                  context.read<RouteCubit>().reorderStops(
-                    oldIndex,
-                    newIndex > oldIndex ? newIndex - 1 : newIndex,
-                  );
-                },
-                itemBuilder: (context, index) {
-                  final stop = state.stops[index];
-                  return Padding(
-                    key: ValueKey(stop.id),
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _StopCard(
-                      stop: stop,
-                      index: index,
-                      onTap: () => context.push('/routes/${stop.clientId}', extra: stop),
+              final total = state.stops.length;
+              final done = state.stops
+                  .where((s) => s.status != VisitStatus.pendente)
+                  .length;
+              final progress = total > 0 ? done / total : 0.0;
+
+              return Column(
+                children: [
+                  // Progress header
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              '$done/$total visitas',
+                              style: AppTypography.body(14, weight: FontWeight.w600)
+                                  .copyWith(color: primaryColor),
+                            ),
+                            const Spacer(),
+                            Text(
+                              '${(progress * 100).round()}%',
+                              style: AppTypography.metric(16)
+                                  .copyWith(color: primaryColor),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(AppRadius.full),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 6,
+                            backgroundColor: primaryColor.withValues(alpha: 0.12),
+                            valueColor: AlwaysStoppedAnimation<Color>(primaryColor),
+                          ),
+                        ),
+                      ],
                     ),
+                  ),
+                  // Stop list
+                  Expanded(
+                    child: ReorderableListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      buildDefaultDragHandles: true,
+                      itemCount: state.stops.length,
+                      onReorder: (oldIndex, newIndex) {
+                        context.read<RouteCubit>().reorderStops(
+                          oldIndex,
+                          newIndex > oldIndex ? newIndex - 1 : newIndex,
+                        );
+                      },
+                      itemBuilder: (context, index) {
+                        final stop = state.stops[index];
+                        return Padding(
+                          key: ValueKey(stop.id),
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _StopCard(
+                            stop: stop,
+                            index: index,
+                            onTap: () => context.push('/routes/${stop.clientId}', extra: stop),
+                          ),
                   );
-                },
+                      },
+                    ),
+                  ),
+                ],
               );
             }
 
@@ -195,6 +288,7 @@ class _StatusChip extends StatelessWidget {
       VisitStatus.visitado       => ('Visitado', AppColors.statusInfo),
       VisitStatus.vendaRealizada => ('Concluído', AppColors.statusSuccess),
       VisitStatus.visitaSemVenda => ('Sem Venda', AppColors.mutedForegroundDark),
+      VisitStatus.pulado         => ('Pulado', AppColors.inactiveGray),
     };
 
     return Container(

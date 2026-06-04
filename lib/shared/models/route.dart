@@ -1,11 +1,12 @@
 import 'package:equatable/equatable.dart';
 
-enum VisitStatus { pendente, visitado, vendaRealizada, visitaSemVenda }
+enum VisitStatus { pendente, visitado, vendaRealizada, visitaSemVenda, pulado }
 
 VisitStatus _visitStatusFromJson(String value) {
   return switch (value) {
     'venda_realizada' => VisitStatus.vendaRealizada,
     'sem_venda' => VisitStatus.visitaSemVenda,
+    'pulado' => VisitStatus.pulado,
     _ => VisitStatus.values.byName(value),
   };
 }
@@ -24,6 +25,12 @@ class RouteStop extends Equatable {
     this.checkinLongitude,
     this.checkinPhotoUrl,
     this.noSaleReason,
+    this.phone,
+    this.segment,
+    this.clientNotes,
+    this.totalOrders,
+    this.totalRevenue,
+    this.lastOrderDate,
   });
 
   final String id;
@@ -38,6 +45,12 @@ class RouteStop extends Equatable {
   final double? checkinLongitude;
   final String? checkinPhotoUrl;
   final String? noSaleReason;
+  final String? phone;
+  final String? segment;
+  final String? clientNotes;
+  final int? totalOrders;
+  final double? totalRevenue;
+  final DateTime? lastOrderDate;
 
   factory RouteStop.fromJson(Map<String, dynamic> json) {
     return RouteStop(
@@ -124,6 +137,12 @@ class RouteStop extends Equatable {
     checkinLongitude,
     checkinPhotoUrl,
     noSaleReason,
+    phone,
+    segment,
+    clientNotes,
+    totalOrders,
+    totalRevenue,
+    lastOrderDate,
   ];
 }
 

@@ -14,6 +14,7 @@ import '../../core/storage/local_database.dart';
 import '../../shared/models/route.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/dot_grid_background.dart';
+import 'route_cubit.dart';
 
 // ---------------------------------------------------------------------------
 // State
@@ -80,10 +81,7 @@ class CheckinCubit extends Cubit<CheckinState> {
         final requested = await Geolocator.requestPermission();
         if (requested == LocationPermission.denied ||
             requested == LocationPermission.deniedForever) {
-          emit(state.copyWith(
-            phase: CheckinPhase.error,
-            errorMessage: 'Permissão de localização negada',
-          ));
+          emit(state.copyWith(phase: CheckinPhase.ready));
           return;
         }
       }
@@ -101,10 +99,7 @@ class CheckinCubit extends Cubit<CheckinState> {
         longitude: position.longitude,
       ));
     } catch (e) {
-      emit(state.copyWith(
-        phase: CheckinPhase.error,
-        errorMessage: 'Erro ao obter localização: $e',
-      ));
+      emit(state.copyWith(phase: CheckinPhase.ready));
     }
   }
 
@@ -161,6 +156,8 @@ class CheckinCubit extends Cubit<CheckinState> {
   }
 }
 
+enum CheckinOutcome { order, noSale }
+
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
@@ -181,6 +178,115 @@ class CheckinScreen extends StatelessWidget {
 
 class _CheckinView extends StatelessWidget {
   const _CheckinView();
+
+  void _showOutcomeSheet(BuildContext context, RouteStop stop) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? AppColors.cardDark : AppColors.cardLight;
+    final fgColor = isDark ? AppColors.foregroundDark : AppColors.foregroundLight;
+    final mutedFg = isDark ? AppColors.mutedForegroundDark : AppColors.mutedForegroundLight;
+    final primaryColor = isDark ? AppColors.primaryDark : AppColors.primaryLight;
+
+    showModalBottomSheet<CheckinOutcome>(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: cardColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.statusSuccess.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle,
+                    color: AppColors.statusSuccess, size: 28),
+              ),
+              const SizedBox(height: 16),
+              Text('Check-in realizado!',
+                  style: AppTypography.title(20).copyWith(color: fgColor)),
+              const SizedBox(height: 4),
+              Text(stop.clientName,
+                  style: AppTypography.body(14).copyWith(color: mutedFg)),
+              const SizedBox(height: 24),
+              Text('O que aconteceu na visita?',
+                  style: AppTypography.body(14, weight: FontWeight.w500)
+                      .copyWith(color: fgColor)),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.shopping_cart_outlined, size: 20),
+                  label: Text('Fazer Pedido',
+                      style: AppTypography.body(15, weight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    context.go('/orders/catalog', extra: {
+                      'clientId': stop.clientId,
+                      'clientName': stop.clientName,
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: OutlinedButton.icon(
+                  icon: Icon(Icons.cancel_outlined,
+                      size: 20, color: AppColors.statusWarning),
+                  label: Text('Sem Venda',
+                      style: AppTypography.body(15, weight: FontWeight.w600)
+                          .copyWith(color: AppColors.statusWarning)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                        color: AppColors.statusWarning.withValues(alpha: 0.4)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                    ),
+                  ),
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    context.go('/orders/no-sale', extra: {
+                      'clientId': stop.clientId,
+                      'clientName': stop.clientName,
+                      'routeId': stop.routeId,
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(sheetContext).pop();
+                  context.go('/routes');
+                },
+                child: Text('Voltar para rota',
+                    style: AppTypography.body(14).copyWith(color: mutedFg)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -203,18 +309,9 @@ class _CheckinView extends StatelessWidget {
         child: BlocConsumer<CheckinCubit, CheckinState>(
           listenWhen: (p, c) => c.phase == CheckinPhase.success,
           listener: (context, state) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                backgroundColor: AppColors.statusSuccess,
-                content: Text(
-                  'Check-in realizado com sucesso!',
-                  style: AppTypography.body(14).copyWith(color: Colors.white),
-                ),
-              ),
-            );
-            Future.delayed(const Duration(seconds: 1), () {
-              if (context.mounted) context.pop(true);
-            });
+            final cubit = context.read<CheckinCubit>();
+            context.read<RouteCubit>().markClientVisited(cubit.stop.clientId);
+            _showOutcomeSheet(context, cubit.stop);
           },
           builder: (context, state) {
             final cubit = context.read<CheckinCubit>();
@@ -266,11 +363,15 @@ class _CheckinView extends StatelessWidget {
                       Icon(
                         state.phase == CheckinPhase.locating
                             ? Icons.my_location
-                            : Icons.location_on,
+                            : state.latitude != null
+                                ? Icons.location_on
+                                : Icons.location_off_outlined,
                         size: 20,
                         color: state.phase == CheckinPhase.locating
                             ? mutedFg
-                            : AppColors.statusSuccess,
+                            : state.latitude != null
+                                ? AppColors.statusSuccess
+                                : mutedFg,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -288,8 +389,8 @@ class _CheckinView extends StatelessWidget {
                                 style: AppTypography.body(14).copyWith(color: fgColor),
                               )
                             else
-                              Text('Indisponível',
-                                  style: AppTypography.body(14).copyWith(color: AppColors.destructive)),
+                              Text('Sem localização (opcional)',
+                                  style: AppTypography.body(14).copyWith(color: mutedFg)),
                           ],
                         ),
                       ),
@@ -357,30 +458,6 @@ class _CheckinView extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                 ],
-
-                // Success feedback
-                if (state.phase == CheckinPhase.success)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppColors.statusSuccess.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(AppRadius.lg),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.check_circle,
-                            color: AppColors.statusSuccess, size: 24),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Check-in realizado!',
-                          style: AppTypography.body(14, weight: FontWeight.w600).copyWith(
-                            color: AppColors.statusSuccess,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
 
                 // Confirm button
                 if (state.phase != CheckinPhase.success) ...[

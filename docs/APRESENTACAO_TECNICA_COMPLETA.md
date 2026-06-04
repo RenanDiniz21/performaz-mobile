@@ -58,9 +58,9 @@ Evidencias principais:
 | `lib/core/storage/` | Armazenamento seguro e banco local Drift | `SecureStorage`, `LocalDatabase` |
 | `lib/core/sync/` | Sincronizacao offline/online | `SyncService`, metodos `_syncCheckins` e `_syncOrders` |
 | `lib/features/auth/` | Login, recuperacao, perfil e mensagens de acao | `LoginScreen`, `ForgotPasswordScreen`, `ProfileScreen` |
-| `lib/features/routes/` | Rota do vendedor, detalhe do cliente e check-in | `RouteListScreen`, `RouteCubit`, `ClientDetailScreen`, `CheckinScreen` |
+| `lib/features/routes/` | Rota do vendedor, mapa da rota, detalhe do cliente e check-in | `RouteListScreen`, `RouteMapScreen`, `CreateRouteScreen`, `NavigateToClientScreen`, `RouteCubit`, `ClientDetailScreen`, `CheckinScreen` |
 | `lib/features/orders/` | Catalogo, carrinho, resumo e visita sem venda | `ProductCatalogScreen`, `CartScreen`, `OrderSummaryScreen`, `NoSaleScreen` |
-| `lib/features/gamification/` | Dashboard de XP, conquistas, ranking e progresso de metas | `GamificationDashboard`, `AchievementsScreen`, `LeaderboardScreen`, `SellerGoalProgress` |
+| `lib/features/gamification/` | Dashboard de XP, missões (quests), conquistas, ranking e progresso | `GamificationDashboard`, `QuestsScreen`, `AchievementsScreen`, `LeaderboardScreen`, `SellerGoalProgress` |
 | `lib/features/manager/` | Telas gerenciais e tela de handoff para painel web | `ManagerHandoffScreen`, `DashboardScreen`, `GoalsScreen`, `LiveMapScreen`, CRUDs |
 | `lib/shared/models/` | Modelos de dominio | `User`, `Product`, `Order`, `RouteStop`, `SalesRoute`, `Achievement` |
 | `lib/shared/widgets/` | Widgets reutilizaveis | `AppCard`, `StatCard`, `SyncIndicator`, `OfflineAwareWidget`, `FilterPills` |
@@ -108,6 +108,7 @@ Nao foi encontrada uma Clean Architecture formal com separacao explicita `domain
 | connectivity_plus | Sim | `ConnectivityService`, `SyncService` | Status online/offline e sync |
 | geolocator | Sim | `CheckinCubit.init` | Permissao e coordenadas de check-in |
 | image_picker | Sim | `CheckinCubit.pickPhoto` | Foto comprobatória do check-in |
+| url_launcher | Sim | `ClientDetailScreen`, metodos de launch | Abrir app de telefone/mapas |
 | firebase_core/firebase_messaging | Declarado | `pubspec.yaml` | Mensageria; uso em `lib/` nao confirmado |
 | fl_chart | Sim | `DashboardScreen`, `_RevenueChart` | Grafico de receita |
 | flutter_map/latlong2 | Sim | `LiveMapScreen`, `_MapView` | Mapa gerencial |
@@ -129,13 +130,17 @@ Rotas confirmadas:
 | `/login` | `LoginScreen` | Rota inicial |
 | `/forgot-password` | `ForgotPasswordScreen` | Recuperacao de senha |
 | `/routes` | `RouteListScreen` | Dentro de `ShellRoute` do vendedor |
+| `/routes/map` | `RouteMapScreen` | Mapa do vendedor dentro de `ShellRoute` |
+| `/routes/create` | `CreateRouteScreen` | Criacao de nova rota |
 | `/routes/:clientId` | `ClientDetailScreen` | Recebe `RouteStop` por `state.extra` |
 | `/routes/:clientId/checkin` | `CheckinScreen` | Recebe `RouteStop` por `state.extra` |
+| `/routes/:clientId/navigate` | `NavigateToClientScreen` | Tela de navegacao recebendo `RouteStop` |
 | `/orders/catalog` | `ProductCatalogScreen` | Inicializa carrinho se `clientId` vier em `extra` |
 | `/orders/cart` | `CartScreen` | Carrinho do pedido |
 | `/orders/summary` | `OrderSummaryScreen` | Confirmacao do pedido |
 | `/orders/no-sale` | `NoSaleScreen` | Registro de visita sem venda |
 | `/gamification` | `GamificationDashboard` | Dashboard do vendedor |
+| `/gamification/quests` | `QuestsScreen` | Missoes ativas do vendedor |
 | `/gamification/achievements` | `AchievementsScreen` | Conquistas |
 | `/gamification/leaderboard` | `LeaderboardScreen` | Ranking |
 | `/profile` | `ProfileScreen` | Perfil do vendedor |
@@ -174,7 +179,7 @@ Metodos relevantes:
 | `insertOrder` | `LocalDatabase` | Insere pedido pendente |
 | `getUnsyncedOrders` | `LocalDatabase` | Lista pedidos nao sincronizados |
 | `markOrderSynced` | `LocalDatabase` | Marca pedido sincronizado |
-| `cacheClient`/`cacheProduct` | `LocalDatabase` | Grava cache em JSON |
+| `cacheClient`/`cacheProduct` | `LocalDatabase` | Grava cache em JSON (definido, porem sem integracao direta no repositorio) |
 
 ### 2.7 Comunicacao com API
 
@@ -284,6 +289,7 @@ Material Design confirmado: `AppTheme.dark` e `AppTheme.light` definem `useMater
 | `connectivity_plus` | ^6.1.4 | `ConnectivityService`, `SyncService` | Online/offline | Stream de conectividade | Nao garante internet real | ping HTTP, internet_connection_checker | Aciona sync ao reconectar |
 | `geolocator` | ^13.0.2 | `CheckinCubit.init` | Localizacao | Permissao e GPS | Requer permissoes nativas | location | Check-in precisa de coordenadas |
 | `image_picker` | ^1.1.2 | `CheckinCubit.pickPhoto` | Foto | Camera/galeria | Permissoes e arquivos locais | camera | Comprovante visual de visita |
+| `url_launcher` | ^6.3.1 | `ClientDetailScreen` | Telefonar / Abrir Maps | Delegacao facil para apps externos | Exige configuracao em iOS (Info.plist) | Integracao manual | Agiliza acoes de contato e navegacao |
 | `firebase_messaging` | ^15.2.5 | Declarada; uso direto nao confirmado | Push | Integracao FCM | Configuracao nativa | OneSignal | Nao foi possivel confirmar uso atraves do codigo |
 | `firebase_core` | ^3.12.1 | Declarada; uso direto nao confirmado | Inicializacao Firebase | Base para plugins Firebase | Requer config por plataforma | N/A | Nao foi possivel confirmar uso atraves do codigo |
 | `workmanager` | ^0.9.0+3 | Declarada; uso direto nao confirmado | Background tasks | Sincronizacao agendada possivel | Diferencas por plataforma | background_fetch | Nao foi possivel confirmar uso atraves do codigo |
@@ -326,11 +332,12 @@ Material Design confirmado: `AppTheme.dark` e `AppTheme.light` definem `useMater
 
 | Tela | Arquivo/classe | Responsabilidade | Quem abre | Navega para | Estado/componentes | Integracoes/regras |
 |---|---|---|---|---|---|---|
-| Lista de rotas | `route_list_screen.dart`, `RouteListScreen` | Mostrar rota do dia e permitir reordenacao | `/routes`, bottom nav | detalhe do cliente | `BlocBuilder<RouteCubit, RouteState>`, `ReorderableListView.builder`, `CircularProgressIndicator` | `RouteCubit.loadRoute`, `RouteCubit.reorderStops` |
-| Detalhe do cliente | `client_detail_screen.dart`, `ClientDetailScreen` | Dados do cliente/parada e acoes | lista de rotas | check-in, catalogo, visita sem venda | `ListView`, botoes, `_InfoRow` | Usa `RouteStop` via `state.extra` |
-| Check-in | `checkin_screen.dart`, `CheckinScreen`, `CheckinCubit` | Capturar localizacao/foto e registrar visita | detalhe do cliente | volta para rota | `BlocConsumer`, `ListView`, `SnackBar`, fases `CheckinPhase` | Usa `Geolocator`, `ImagePicker`, `ApiClient.post`; se falhar, salva `PendingCheckinsCompanion` em `LocalDatabase` |
-
-Estados confirmados: `RouteLoading`, `RouteLoaded`, `RouteError`, `RouteEmpty` em `RouteCubit`; `CheckinPhase.idle`, `locating`, `ready`, `submitting`, `success`, `error` em `CheckinScreen`.
+| Lista de rotas | `route_list_screen.dart`, `RouteListScreen` | Mostrar rota do dia e permitir reordenacao | `/routes`, bottom nav | detalhe do cliente, rotas/map, criar rota | `BlocBuilder<RouteCubit, RouteState>`, `ReorderableListView.builder`, `CircularProgressIndicator` | `RouteCubit.loadRoute`, `RouteCubit.reorderStops` |
+| Mapa de rota | `route_map_screen.dart`, `RouteMapScreen` | Ver caminho geral da rota | `/routes/map` | detalhes da rota | `FlutterMap`, `MarkerLayer` | Integrado via `ShellRoute` |
+| Criacao de rota | `create_route_screen.dart`, `CreateRouteScreen` | Fluxo de nova rota | `/routes/create` | volta para lista | UI de form, estado local | Utilizado no fluxo do vendedor |
+| Detalhe do cliente | `client_detail_screen.dart`, `ClientDetailScreen` | Dados do cliente/parada e acoes | lista de rotas | check-in, catalogo, sem venda, navegacao | `ListView`, botoes, `url_launcher` | Usa `RouteStop` via `state.extra`. Dispara telefone/mapa. |
+| Check-in | `checkin_screen.dart`, `CheckinScreen`, `CheckinCubit` | Capturar localizacao/foto e registrar visita | detalhe do cliente | volta para rota | `BlocConsumer`, `ListView`, `SnackBar`, fases `CheckinPhase` | Usa `Geolocator`, `ImagePicker`, `ApiClient.post`; salva `PendingCheckinsCompanion` offline |
+| Navegacao | `navigate_to_client_screen.dart`, `NavigateToClientScreen` | Visualizar proxima parada | `/routes/:id/navigate` | volta ou check-in | UI informacional | Confirma a passagem para parada |
 
 ### 4.3 Pedidos
 
@@ -338,28 +345,30 @@ Estados confirmados: `RouteLoading`, `RouteLoaded`, `RouteError`, `RouteEmpty` e
 |---|---|---|---|---|---|---|
 | Catalogo | `product_catalog_screen.dart`, `ProductCatalogScreen`, `ProductCatalogCubit` | Buscar/filtrar produtos e adicionar ao carrinho | bottom nav ou detalhe do cliente | carrinho por snackbar | `TextField`, `ListView.separated`, debounce `Timer`, categorias | `ApiProductSource.fetchProducts` usa `CrudRepository.fetchProducts`; filtros por busca/categoria |
 | Carrinho | `cart_screen.dart`, `CartScreen`, `CartCubit` | Quantidades, remocao, observacoes | `/orders/cart` | `/orders/summary` | `BlocBuilder`, `ListView`, stepper | Regras de total, incremento, decremento, `clear` |
-| Resumo | `order_summary_screen.dart`, `OrderSummaryScreen`, `_onConfirm` | Confirmar pedido | carrinho | `/routes` apos sucesso | `BlocBuilder<CartCubit, CartState>`, `Dialog`, `SnackBar` | `submitOrderOnlineFirst`; tenta `OrderRepository.createOrder`, salva `PendingOrdersCompanion` se falhar, chama `SyncService.syncAll` |
+| Resumo | `order_summary_screen.dart`, `OrderSummaryScreen`, `_onConfirm` | Confirmar pedido | carrinho | `/routes` apos sucesso | `BlocBuilder<CartCubit, CartState>`, `Dialog`, `SnackBar` | `submitOrderOnlineFirst`; tenta `OrderRepository.createOrder`, salva `PendingOrdersCompanion` se falhar |
 | Sem venda | `no_sale_screen.dart`, `NoSaleScreen`, `NoSaleCubit` | Registrar motivo de visita sem venda | detalhe do cliente | `/routes` | `BlocConsumer`, `RadioGroup`, `RadioListTile`, `TextField`, `Dialog` | Valida motivo, usa `apiClient.post(buildNoSaleRoutePath(routeId))`, atualiza `RouteCubit.markClientNoSale` |
 
 ### 4.4 Gamificacao
 
 | Tela | Arquivo/classe | Responsabilidade | Quem abre | Navega para | Estado/componentes | Integracoes/regras |
 |---|---|---|---|---|---|---|
-| Dashboard de gamificacao | `gamification_dashboard.dart`, `GamificationDashboard`, `GamificationDashboardCubit.load` | Mostrar XP, nivel, metas, proximas conquistas e eventos | `/gamification` | conquistas/ranking por acoes internas | `BlocBuilder`, `RefreshIndicator`, `ListView`, `LinearProgressIndicator`, cards | Usa `Future.wait` com repositorio de gamificacao |
+| Dashboard de gamificacao | `gamification_dashboard.dart`, `GamificationDashboard`, `GamificationDashboardCubit.load` | Mostrar XP, nivel, metas, proximas conquistas e eventos | `/gamification` | conquistas/ranking/quests | `BlocBuilder`, `RefreshIndicator`, `ListView`, `LinearProgressIndicator`, cards | Usa `Future.wait` com repositorio de gamificacao |
+| Missoes | `quests_screen.dart`, `QuestsScreen` | Exibir quests (desafios em aberto) | `/gamification/quests` | volta | `ListView`, badges de meta | Gamificacao do vendedor |
 | Conquistas | `achievements_screen.dart`, `AchievementsScreen`, `AchievementsCubit.load` | Grade de badges/conquistas | `/gamification/achievements` | volta | `GridView.builder`, animacao em `_AchievementCardState` | `GamificationRepository.fetchAchievements` |
 | Ranking | `leaderboard_screen.dart`, `LeaderboardScreen`, `LeaderboardCubit` | Podio e lista ranqueada | `/gamification/leaderboard` | volta | `ListView.separated`, filtros `LeaderboardPeriod` e `LeaderboardMetric` | Usa `SecureStorage.getUserId` e `GamificationRepository.fetchLeaderboard` |
 
 ### 4.5 Gestor
 
-Observacao de precisao: `lib/app/router.dart` confirma apenas `/manager` apontando para `ManagerHandoffScreen`. Telas como `DashboardScreen`, `GoalsScreen`, `LiveMapScreen`, `RoutesBuilderScreen`, `NotificationsScreen` e CRUDs existem no codigo, mas nao aparecem conectadas ao roteador principal atual. `ManagerShell` tambem existe, com paths de sidebar, mas nao esta integrado no `AppRouter` atual.
+Observacao de precisao: O codigo contem um shell gerencial completo (`ManagerShell` em `lib/app/shell/manager_shell.dart`) com navegacao sidebar para rotas como `/manager/sellers`, `/manager/goals`, etc. Porem, o roteador (`AppRouter`) atualmente registra APENAS `/manager` redirecionando para a tela `ManagerHandoffScreen`.
 
 | Tela | Arquivo/classe | Responsabilidade | Estado/componentes | Integracoes/regras |
 |---|---|---|---|---|
 | Handoff gestor | `manager_handoff_screen.dart`, `ManagerHandoffScreen` | Informar que painel gestor fica no web | `Scaffold`, `SafeArea`, `OutlinedButton` | URL estatica `http://localhost:3000/login`; logout via `AuthBloc` |
+| Manager Shell | `shell/manager_shell.dart`, `ManagerShell` | Layout com sidebar p/ painel web gerencial | `Row`, `Container`, `_ManagerSidebar`, `_NavItem` | Menu de gestor completo implementado mas desligado do router ativo |
 | Dashboard gestor | `dashboard_screen.dart`, `DashboardScreen`, `DashboardCubit.load` | KPIs e grafico semanal | `BlocBuilder`, `StatCard`, `BarChart` | `ManagerRepository.fetchKpis`, `fetchDailyRevenue` |
 | Metas | `goals_screen.dart`, `GoalsScreen`, `GoalsCubit` | Editar metas por vendedor | `BlocBuilder`, dialog com `TextField` | `ManagerRepository.fetchGoals`, `fetchVendors`, `updateGoal/createGoal` |
 | Mapa ao vivo | `live_map_screen.dart`, `LiveMapScreen`, `LiveMapCubit` | Exibir vendedores no mapa | `FlutterMap`, `TileLayer`, `MarkerLayer`, `ListView` | `ManagerRepository.fetchVendorLocations`; ha delay/mock em `_fetchPositions` |
-| Rotas gerenciais | `routes_builder.dart`, `RoutesBuilderScreen`, `RoutesBuilderCubit` | Atribuir clientes a vendedores | listas, paineis e acoes | `getIt<ApiClient>().post('/routes', data: ...)`; comentarios indicam mock/pendencia em load |
+| Rotas gerenciais | `routes_builder.dart`, `RoutesBuilderScreen`, `RoutesBuilderCubit` | Atribuir clientes a vendedores | listas, paineis e acoes | `getIt<ApiClient>().post('/routes', data: ...)`; pendencia em load |
 | Notificacoes | `notifications_screen.dart`, `NotificationsScreen`, `NotificationsCubit` | Enviar e listar notificacoes | compose/history cards | `ManagerRepository.fetchNotifications`, `sendNotification` |
 | CRUD vendedores | `crud/sellers_crud.dart`, `SellersCrudScreen`, `SellersCrudCubit` | Listar, filtrar, editar vendedores | `TextField`, dialog, paginacao | `CrudRepository.fetchVendors`; add/update/delete local |
 | CRUD clientes | `crud/clients_crud.dart`, `ClientsCrudScreen`, `ClientsCrudCubit` | Listar, filtrar, editar clientes | `TextField`, dialog, paginacao | Carrega mock por delay; integracao real nao confirmada |
@@ -392,7 +401,7 @@ Observacao de precisao: `lib/app/router.dart` confirma apenas `/manager` apontan
 | `CircularProgressIndicator` | loading em varias telas | Estado de carregamento | skeleton shimmer | Simples e reconhecivel |
 | `LinearProgressIndicator` | gamificacao/metas | Progresso | barras custom | Progresso de XP/metas |
 | `BarChart` | `DashboardScreen._RevenueChart` | Grafico de receita | charts nativos/manual | `fl_chart` declarado e usado |
-| `FlutterMap` | `LiveMapScreen._MapView` | Mapa interativo | Google Maps | OpenStreetMap/flexibilidade |
+| `FlutterMap` | `LiveMapScreen._MapView`, `RouteMapScreen` | Mapa interativo | Google Maps | OpenStreetMap/flexibilidade |
 | `AppCard` | telas de pedido e shared UI | Card padronizado | `Card` direto | Consistencia visual |
 | `StatCard` | dashboard/gamificacao | KPI compacto | card custom por tela | Reuso de metricas |
 | `SyncIndicator` | shared | Indica pendencias/sync | snackbar permanente | Feedback offline |
@@ -485,7 +494,7 @@ A DI e manual via `GetIt`, nao via annotations do `injectable`. Embora `injectab
 
 `GoRouter` centraliza todas as rotas mobile confirmadas. A navegacao por role usa `homeRouteForRole(UserRole role)`.
 
-Risco tecnico: algumas rotas exigem `state.extra! as models.RouteStop`. Caso o usuario acesse URL profunda sem `extra`, ha risco de exception. Isso aparece em `AppRouter` nas rotas `/routes/:clientId` e `/routes/:clientId/checkin`.
+Risco tecnico: algumas rotas exigem `state.extra! as models.RouteStop`. Caso o usuario acesse URL profunda sem `extra`, ha risco de exception. Isso aparece em `AppRouter` nas rotas `/routes/:clientId`, `/routes/:clientId/checkin` e `/routes/:clientId/navigate`.
 
 ---
 
@@ -513,7 +522,7 @@ Impactos:
 | Status | `statusSuccess`, `statusWarning`, `statusError`, `statusInfo` | Semantica operacional |
 | Charts | `chart1` a `chart5` | Graficos |
 | Gamificacao | `xpGold`, `xpGoldDark` | XP/conquistas |
-| Sidebar | `sidebarBg`, `sidebarAccent`, `sidebarFg` | Navegacao lateral/baixo |
+| Sidebar | `sidebarBg`, `sidebarAccent`, `sidebarFg` | Navegacao lateral/baixo (`ManagerShell`) |
 
 ### 7.3 Tipografia
 
@@ -540,7 +549,7 @@ Componentes compartilhados:
 | `StatusDot` | `shared/widgets/status_dot.dart` | Indicador animado |
 | `PriorityBadge` | `shared/widgets/priority_badge.dart` | Prioridade visual |
 | `FilterPills` | `shared/widgets/filter_pills.dart` | Filtros horizontais |
-| `DotGridBackground` | `shared/widgets/dot_grid_background.dart` | Fundo visual |
+| `DotGridBackground` | `shared/widgets/dot_grid_background.dart` | Fundo visual (`ManagerShell`) |
 | `OfflineAwareWidget` | `shared/widgets/offline_aware_widget.dart` | Indicacao de offline |
 | `SyncIndicator` | `shared/widgets/sync_indicator.dart` | Pendencias/sync |
 
@@ -549,10 +558,10 @@ Componentes compartilhados:
 Evidencias:
 
 - `ManagerHandoffScreen` usa `BoxConstraints(maxWidth: 420)` para limitar largura.
-- Telas gerenciais usam layouts com `Row`, paineis e sidebar (`ManagerShell`, `DashboardScreen`, `LiveMapScreen`).
+- O `ManagerShell` e projetado em `Row` com sidebars de 260px visando uso em telas grandes.
 - Telas mobile usam `ListView`, `SafeArea`, `NavigationBar` e paddings constantes.
 
-Nao foi encontrada uma estrategia unica de breakpoints responsivos centralizados. Pontos a verificar manualmente: comportamento em tablets e web.
+Nao foi encontrada uma estrategia unica de breakpoints responsivos centralizados. Pontos a verificar manualmente: comportamento da view mobile em tablets.
 
 ### 7.7 Feedback visual
 
@@ -578,7 +587,7 @@ Nao foram encontrados usos consistentes de `Semantics`, labels acessiveis person
 | `Future.wait` | `GamificationDashboardCubit.load` | Busca paralela de dados | Tratar falha parcial por fonte |
 | Debounce de busca | `ProductCatalogScreen._onSearchChanged`, `Timer(Duration(milliseconds: 300))` | Evita filtragem a cada tecla instantanea | Cancelamento ja ocorre em `dispose` |
 | `Equatable` | Estados/modelos | Comparacao por valor | Props incompletas podem causar bugs |
-| Cache local | `CachedClients`, `CachedProducts` | Reduz dependencia da rede | Uso de cache nas telas precisa ser confirmado |
+| Cache local | `CachedClients`, `CachedProducts` | Drift implementado para cache | O consumo do cache local nas telas/repos precisa ser aplicado |
 | Sincronizacao offline | `SyncService` | Reduz perda de dados em campo | Nao ha retry exponencial confirmado |
 | Rebuild isolado por Cubit | Cubits por tela/modulo | Evita estado global inchado | Alguns cubits criados em shell podem viver durante todo shell |
 | Drift em background | `NativeDatabase.createInBackground` em `di.dart` | Abre DB sem travar UI | Verificar impacto em Windows/iOS |
@@ -734,7 +743,7 @@ Melhorias:
 
 ### 11.2 Rotas
 
-Arquitetura: `RouteCubit` acessa `ApiClient` e `SecureStorage`; UI usa `RouteListScreen` e `ClientDetailScreen`.
+Arquitetura: `RouteCubit` acessa `ApiClient` e `SecureStorage`; UI usa `RouteListScreen`, `RouteMapScreen` e `ClientDetailScreen`.
 
 Fluxo:
 
@@ -748,7 +757,7 @@ Fluxo:
 Melhorias:
 
 - Tipar respostas de API em DTOs.
-- Tratar `state.extra` ausente nos detalhes.
+- Tratar `state.extra` ausente nos detalhes e navegacao.
 - Confirmar comportamento quando rota tem clientes removidos/desatualizados.
 
 ### 11.3 Clientes
@@ -757,7 +766,7 @@ Modelo: `Client` em `shared/models/client.dart` e paradas com dados de cliente e
 
 Fluxos confirmados:
 
-- `ClientDetailScreen` exibe informacoes do `RouteStop`.
+- `ClientDetailScreen` exibe informacoes do `RouteStop` e permite acionar telefones e mapas nativos via `url_launcher`.
 - CRUD gerencial de clientes existe em `ClientsCrudScreen`, mas a carga usa mock/delay; integracao real nao foi confirmada.
 - `CrudRepository` tem metodos `fetchClients`, `createClient`, `updateClient`, `deleteClient`.
 
@@ -765,6 +774,7 @@ Melhorias:
 
 - Conectar `ClientsCrudCubit.load` ao `CrudRepository.fetchClients`.
 - Unificar `Client` e dados de cliente embutidos em `RouteStop`.
+- Integrar as operacoes de fetch da UI ao cache do banco local (`CachedClients`).
 
 ### 11.4 Check-in
 
@@ -809,6 +819,7 @@ Fluxos:
 
 - Dashboard usa `Future.wait` para buscar stats/metas/conquistas/eventos.
 - Conquistas usam `GridView.builder` e animacao.
+- Missoes (quests) adicionadas ao shell do vendedor.
 - Ranking usa filtros por periodo/metrica.
 
 Regras confirmadas:
@@ -823,9 +834,9 @@ Melhorias:
 
 ### 11.7 Dashboard Gerencial
 
-`DashboardScreen` e `DashboardCubit` existem e usam `ManagerRepository`. Exibe KPIs e grafico `BarChart`.
+O codigo possui um `ManagerShell` robusto contendo o menu lateral. Porem, no fluxo principal (AppRouter), `/manager` e redirecionado forcado ao `ManagerHandoffScreen` com `http://localhost:3000/login`.
 
-Ponto critico: o roteador atual nao conecta `DashboardScreen` a `/manager`; `/manager` abre `ManagerHandoffScreen`. Portanto, para o app mobile atual, o dashboard gerencial existe como codigo, mas nao como fluxo navegavel confirmado.
+Ponto critico: o dashboard gerencial existe como codigo (incluindo grafico com `fl_chart`), mas nao como fluxo navegavel ativo. As views requerem re-ativacao manual no router para ser inspecionadas localmente.
 
 ### 11.8 Notificacoes
 
@@ -942,6 +953,7 @@ flowchart TD
     G -->|Sim| I["Estado de erro com retry"]
     H --> J["/gamification/achievements"]
     H --> K["/gamification/leaderboard"]
+    H --> L["/gamification/quests"]
 ```
 
 ### 12.6 Fluxo de navegacao
@@ -953,7 +965,7 @@ flowchart TD
     B -->|Authenticated vendedor| D["/routes"]
     B -->|Authenticated gestor| E["/manager"]
     D --> F["SellerShell"]
-    F --> G["Rotas"]
+    F --> G["Rotas e Mapas"]
     F --> H["Pedidos"]
     F --> I["Gamificacao"]
     F --> J["Perfil"]
@@ -1011,8 +1023,8 @@ flowchart LR
 | 30 | Gamificacao | Como carrega dashboard? | `GamificationDashboardCubit.load` chama repositorio em paralelo. | Com `Future.wait`. |
 | 31 | Gamificacao | Onde estao conquistas? | `Achievement` e `AchievementsScreen`. | Em `features/gamification`. |
 | 32 | Ranking | Quais filtros existem? | `LeaderboardPeriod` e `LeaderboardMetric`. | Periodo e metrica. |
-| 33 | Gestor | O app mobile abre dashboard gestor? | Roteador atual abre `ManagerHandoffScreen`; dashboard existe mas nao esta roteado. | Hoje faz handoff para painel web. |
-| 34 | Gestor | Ha mapa no codigo? | Sim, `LiveMapScreen` usa `FlutterMap` e `LatLng`. | Existe, mas roteamento precisa confirmar. |
+| 33 | Gestor | O app mobile abre dashboard gestor? | O `ManagerShell` existe, mas no momento o AppRouter direciona via `/manager` para `ManagerHandoffScreen`. | Hoje faz handoff para painel web. |
+| 34 | Gestor | Ha mapa no codigo? | Sim, `LiveMapScreen` para o gestor e `RouteMapScreen` para o vendedor usando `FlutterMap`. | Existe, mas parte precisa reconectar. |
 | 35 | Notificacoes | FCM esta implementado? | Dependencias existem, mas uso em `lib/` nao confirmado. | Nao confirmado. |
 | 36 | Testes | Ha testes? | Sim, arquivos como `auth_bloc_test`, `route_cubit_test`, `order_repository_test`. | Sim, ha testes unitarios/widget. |
 | 37 | Lints | Quais lints? | `flutter_lints`; uma regra desabilitada para tipos privados em API publica. | Flutter lints. |
@@ -1028,7 +1040,7 @@ flowchart LR
 | 47 | Arquitetura | Ha service layer? | Sim parcialmente: `SyncService`, `ConnectivityService`, `SecureStorage`, `ApiClient`. | Sim, no `core`. |
 | 48 | Boas praticas | Por que `const` importa? | Reduz recriacao de widgets; uso extensivo no codigo. | Ajuda performance. |
 | 49 | Boas praticas | Qual risco do `state.extra!`? | Deep link sem extra pode quebrar cast nulo. | Precisa fallback. |
-| 50 | Boas praticas | Principal melhoria tecnica? | Tipar DTOs, conectar telas gerenciais ao roteador ou remover codigo nao usado, reforcar HTTPS/refresh. | Fechar lacunas de integracao e seguranca. |
+| 50 | Boas praticas | Principal melhoria tecnica? | Ligar uso das tabelas de cache local (`CachedClients`), revisar ativacao do `ManagerShell` no router, tratar `extra!` deep links. | Fechar lacunas de integracao. |
 
 ---
 
@@ -1047,14 +1059,15 @@ flowchart LR
 | FlutterSecureStorage | SharedPreferences, Hive | Armazenamento seguro | Configuracao por plataforma | Tokens precisam de storage seguro |
 | Geolocator | location | Permissoes e GPS | Permissoes nativas | Check-in exige coordenadas |
 | ImagePicker | camera | Simples para foto/galeria | Menos controle que camera | Check-in precisa anexo visual simples |
+| url_launcher | intents manuais | Rapido launch de maps e chamadas | Tratamento extra no plist (iOS) | Comodidade para detalhes de contato em visitas |
 | fl_chart | graficos custom, Syncfusion | Customizavel e leve | Configuracao manual | Dashboard usa barras de receita |
-| flutter_map | google_maps_flutter | OpenStreetMap e sem SDK proprietario | Tiles/rede | Mapa gerencial |
+| flutter_map | google_maps_flutter | OpenStreetMap e sem SDK proprietario | Tiles/rede | Mapa gerencial / Rota do vendedor |
 
 ---
 
 ## 15. Cola da apresentacao
 
-O Performaz Mobile e um aplicativo Flutter para rotina de vendedor externo, com login, rotas, check-in, pedidos, visita sem venda, gamificacao, ranking, conquistas e perfil. O codigo tambem contem telas gerenciais, mas no roteador atual o gestor e direcionado para uma tela de handoff do painel web.
+O Performaz Mobile e um aplicativo Flutter para rotina de vendedor externo, com login, rotas (incluindo integracoes para navegacao nativa e `url_launcher`), check-in, pedidos, visita sem venda, gamificacao, ranking, conquistas, missoes (quests) e perfil. O codigo tambem contem um modulo gerencial extenso encapsulado pelo `ManagerShell`, embora o roteador atual redirecione a base do gestor para um fluxo de handoff pro web.
 
 A arquitetura real e feature-first com camadas compartilhadas. As telas ficam em `lib/features`, a infraestrutura em `lib/core` e modelos/widgets em `lib/shared`. O estado e gerenciado com `flutter_bloc`: `AuthBloc` para autenticacao e Cubits para rotas, pedidos, gamificacao e telas gerenciais. A injecao de dependencia e feita manualmente com `GetIt` em `setupDependencies`.
 
@@ -1067,8 +1080,8 @@ Pontos fortes:
 - Separacao clara entre features, core e shared.
 - Estado testavel com BLoC/Cubit.
 - DI centralizada.
-- Persistencia offline estruturada.
-- Design system consistente.
+- Persistencia offline estruturada (Drift).
+- Design system consistente e shell gerencial estruturado.
 - Testes unitarios e de widget cobrindo partes importantes.
 
 Possiveis perguntas e respostas rapidas:
@@ -1081,48 +1094,28 @@ Possiveis perguntas e respostas rapidas:
 | Por que Dio? | Interceptors, timeout e upload. |
 | Por que Cubit? | Estados de tela simples com menos boilerplate. |
 | Material 2 ou 3? | Material 3, confirmado por `useMaterial3: true`. |
-| Gestor usa mobile? | O codigo tem telas gerenciais, mas o roteador atual faz handoff para painel web. |
-| Principal risco tecnico? | Rotas com `state.extra!`, HTTPS de producao nao confirmado e dependencias declaradas sem uso confirmado. |
+| Gestor usa mobile? | O codigo tem o ManagerShell com telas de gestao prontas, mas no router a role leva ao Handoff para web. |
+| Principal risco tecnico? | Rotas com `state.extra!`, aplicacao das tabelas de cache (`CachedClients`) e HTTPS de producao nao confirmado. |
 
 ---
 
 ## 16. Pontos a verificar manualmente
 
-1. Confirmar se o painel gestor mobile deve ser ativado. O codigo tem `ManagerShell` e varias telas gerenciais, mas `AppRouter` atual registra apenas `/manager` para `ManagerHandoffScreen`.
-2. Confirmar se Firebase Messaging esta implementado em outro repositório ou se falta inicializacao em `lib/`. `firebase_core` e `firebase_messaging` estao no `pubspec.yaml`, mas uso direto nao foi encontrado.
-3. Confirmar uso real de `workmanager`. A dependencia existe, mas nao foi encontrado registro de tarefas em background no codigo.
-4. Confirmar implementacao real de importacao/exportacao CSV. CRUDs exibem snackbars de import/export, mas `csv`, `file_picker` e `share_plus` nao tiveram uso confirmado em `lib/`.
-5. Confirmar uso de `cached_network_image`. A dependencia esta declarada, mas nao foi encontrado uso direto.
-6. Confirmar HTTPS em producao. `ApiClient` usa default `http://localhost:3333/api`; pode ser substituido por `API_BASE_URL`, mas o valor de producao nao esta no codigo.
-7. Confirmar upload real de foto de check-in. O codigo captura imagem e salva `photoPath`; o sync envia esse caminho como `photoUrl`, o que pode nao ser adequado para backend remoto.
-8. Confirmar politica de refresh token automatico. `AuthRepository.refreshToken` existe, mas nao foi encontrado uso automatico no `AuthInterceptor`.
-9. Confirmar permissoes nativas de localizacao/camera no Android/iOS. O codigo Flutter usa plugins, mas a auditoria nao validou textos/permissoes de plataforma linha a linha.
-10. Confirmar strategy de cache de clientes/produtos. As tabelas existem, mas o consumo do cache pelas telas nao ficou comprovado.
+1. Confirmar se o painel gestor mobile deve ser ativado integralmente. O codigo tem `ManagerShell` funcional com sidebars e diversas telas, mas `AppRouter` direciona `/manager` unicamente ao `ManagerHandoffScreen`.
+2. Confirmar a integracao das tabelas `CachedClients` e `CachedProducts` no `CrudRepository` ou local Cubits, pois estao configuradas e prontas no `LocalDatabase`, mas nao injetadas no fluxo UI ate o momento.
+3. Confirmar se Firebase Messaging esta implementado em outro repositório ou se falta inicializacao em `lib/`. `firebase_core` e `firebase_messaging` estao no `pubspec.yaml`, mas uso direto nao foi encontrado.
+4. Confirmar uso real de `workmanager`. A dependencia existe, mas nao foi encontrado registro de tarefas em background no codigo.
+5. Confirmar implementacao real de importacao/exportacao CSV. CRUDs exibem snackbars de import/export, mas `csv`, `file_picker` e `share_plus` nao tiveram uso confirmado em `lib/`.
+6. Confirmar uso de `cached_network_image`. A dependencia esta declarada, mas nao foi encontrado uso direto.
+7. Confirmar HTTPS em producao. `ApiClient` usa default `http://localhost:3333/api`; pode ser substituido por `API_BASE_URL`, mas o valor de producao nao esta no codigo.
+8. Confirmar upload real de foto de check-in. O codigo captura imagem e salva `photoPath`; o sync envia esse caminho como `photoUrl`, o que pode nao ser adequado para backend remoto sem MultipartRequest.
+9. Confirmar politica de refresh token automatico. `AuthRepository.refreshToken` existe, mas nao foi encontrado uso automatico no `AuthInterceptor`.
+10. Confirmar permissoes nativas de localizacao/camera no Android/iOS. O codigo Flutter usa plugins, mas a auditoria nao validou textos/permissoes de plataforma linha a linha.
 11. Confirmar relatorios. Nao foi encontrada tela dedicada de relatorios; dashboard e CSV parcial podem cobrir parte desse requisito.
 12. Confirmar configuracoes. Nao foi encontrada tela dedicada de configuracoes.
 13. Confirmar acessibilidade avancada. Nao foram encontrados `Semantics` e testes especificos de acessibilidade.
-14. Confirmar deep links para rotas que dependem de `state.extra`, pois `/routes/:clientId` e `/routes/:clientId/checkin` fazem cast obrigatorio.
+14. Confirmar fallback de deep links para rotas que dependem de `state.extra`, pois `/routes/:clientId`, `/routes/:clientId/checkin` e `/routes/:clientId/navigate` fazem cast obrigatorio.
 15. Confirmar se `injectable` deve permanecer. Esta declarado, mas a DI e manual por `GetIt`.
 16. Confirmar se `cupertino_icons` e usado. A dependencia existe, mas uso direto nao foi identificado.
-17. Confirmar se mocks nas telas gerenciais (`Future.delayed` e dados locais) sao intencionais para apresentacao ou pendencia de integracao.
-18. Confirmar se `README.md` esta alinhado ao roteador atual, pois ele descreve painel gestor completo enquanto o app mobile atual faz handoff para web.
-
----
-
-## Referencias internas principais
-
-| Tema | Arquivos |
-|---|---|
-| App/roteamento | `lib/main.dart`, `lib/app/app.dart`, `lib/app/router.dart`, `lib/app/role_home_route.dart` |
-| DI | `lib/app/di.dart` |
-| Tema | `lib/app/theme/app_theme.dart`, `app_colors.dart`, `app_typography.dart`, `app_radius.dart` |
-| Auth | `lib/core/auth/auth_bloc.dart`, `auth_repository.dart`, `login_identifier.dart` |
-| API | `lib/core/network/api_client.dart`, `interceptors/auth_interceptor.dart`, `interceptors/logging_interceptor.dart` |
-| Offline | `lib/core/storage/local_database.dart`, `secure_storage.dart`, `lib/core/sync/sync_service.dart` |
-| Rotas | `lib/features/routes/route_cubit.dart`, `route_list_screen.dart`, `client_detail_screen.dart`, `checkin_screen.dart` |
-| Pedidos | `lib/features/orders/product_catalog_screen.dart`, `cart_screen.dart`, `order_summary_screen.dart`, `no_sale_screen.dart` |
-| Gamificacao | `lib/features/gamification/gamification_dashboard.dart`, `achievements_screen.dart`, `leaderboard_screen.dart`, `seller_goal_progress.dart` |
-| Gestor | `lib/features/manager/*.dart`, `lib/features/manager/crud/*.dart`, `lib/app/shell/manager_shell.dart` |
-| Modelos | `lib/shared/models/*.dart` |
-| Widgets | `lib/shared/widgets/*.dart` |
-| Testes | `test/*.dart` |
+17. Confirmar se mocks nas telas gerenciais (`Future.delayed` e dados locais) sao intencionais para apresentacao ou pendencia de integracao backend.
+18. Confirmar se `README.md` esta alinhado ao roteador atual, pois ele descreve painel gestor completo enquanto o app mobile atual faz handoff para web no AppRouter.

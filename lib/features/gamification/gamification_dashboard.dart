@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/di.dart';
 import '../../app/theme/app_colors.dart';
@@ -256,6 +257,50 @@ class GamificationDashboard extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   _GoalProgressSection(goals: state.goals),
+                  const SizedBox(height: 24),
+                  // Quick nav to Quests
+                  InkWell(
+                    onTap: () => context.push('/gamification/quests'),
+                    borderRadius: AppRadius.lgBorder,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: AppRadius.lgBorder,
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppColors.xpGold.withValues(alpha: 0.15),
+                              borderRadius: AppRadius.smBorder,
+                            ),
+                            child: const Icon(Icons.flag_outlined,
+                                color: AppColors.xpGold, size: 22),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Missões',
+                                    style: AppTypography.bodyMedium
+                                        .copyWith(fontWeight: FontWeight.w700)),
+                                Text('Veja suas missões diárias e semanais',
+                                    style: AppTypography.bodySmall
+                                        .copyWith(color: AppColors.mutedForeground)),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right,
+                              color: AppColors.mutedForeground),
+                        ],
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   _NextAchievements(achievements: state.nextAchievements),
                   const SizedBox(height: 24),

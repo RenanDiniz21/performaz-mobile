@@ -24,6 +24,11 @@ class GamificationRepository {
     return (response.data as List).cast<Map<String, dynamic>>();
   }
 
+  Future<List<Map<String, dynamic>>> fetchQuests() async {
+    final response = await apiClient.get('/quests');
+    return (response.data as List).cast<Map<String, dynamic>>();
+  }
+
   Future<List<Map<String, dynamic>>> fetchLeaderboard({
     String metric = 'xp',
     String period = 'mensal',

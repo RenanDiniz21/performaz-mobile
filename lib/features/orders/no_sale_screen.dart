@@ -180,10 +180,11 @@ class _NoSaleBody extends StatelessWidget {
               reason.apiValue,
             );
           }
+          final router = GoRouter.of(context);
           showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (_) => AlertDialog(
+            builder: (dialogContext) => AlertDialog(
               backgroundColor: cardColor,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadius.xl),
@@ -206,8 +207,8 @@ class _NoSaleBody extends StatelessWidget {
               actions: [
                 TextButton(
                   onPressed: () {
-                    Navigator.of(context).pop();
-                    context.go('/routes');
+                    Navigator.of(dialogContext).pop();
+                    router.go('/routes');
                   },
                   child: Text(
                     'OK',

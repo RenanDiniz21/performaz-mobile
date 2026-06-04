@@ -29,8 +29,8 @@ class _SellerBottomNav extends StatelessWidget {
   final String currentPath;
 
   int get _currentIndex {
+    if (currentPath == '/routes/map') return 1;
     if (currentPath.startsWith('/routes')) return 0;
-    if (currentPath.startsWith('/orders')) return 1;
     if (currentPath.startsWith('/gamification')) return 2;
     if (currentPath.startsWith('/profile')) return 3;
     return 0;
@@ -51,7 +51,7 @@ class _SellerBottomNav extends StatelessWidget {
           case 0:
             context.go('/routes');
           case 1:
-            context.go('/orders/catalog');
+            context.go('/routes/map');
           case 2:
             context.go('/gamification');
           case 3:
@@ -65,9 +65,9 @@ class _SellerBottomNav extends StatelessWidget {
           label: 'Rota',
         ),
         NavigationDestination(
-          icon: Icon(Icons.shopping_cart_outlined, color: inactiveColor),
-          selectedIcon: Icon(Icons.shopping_cart, color: primaryColor),
-          label: 'Pedidos',
+          icon: Icon(Icons.map_outlined, color: inactiveColor),
+          selectedIcon: Icon(Icons.map, color: primaryColor),
+          label: 'Mapa',
         ),
         NavigationDestination(
           icon: Icon(Icons.emoji_events_outlined, color: inactiveColor),

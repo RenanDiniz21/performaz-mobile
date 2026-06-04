@@ -72,7 +72,9 @@ class LocalDatabase extends _$LocalDatabase {
   // --- Pending checkins ---
   Future<int> getPendingCheckinCount() async {
     final count = countAll();
-    final query = selectOnly(pendingCheckins)..addColumns([count]);
+    final query = selectOnly(pendingCheckins)
+      ..addColumns([count])
+      ..where(pendingCheckins.synced.equals(false));
     final row = await query.getSingle();
     return row.read(count) ?? 0;
   }
@@ -94,7 +96,9 @@ class LocalDatabase extends _$LocalDatabase {
   // --- Pending orders ---
   Future<int> getPendingOrderCount() async {
     final count = countAll();
-    final query = selectOnly(pendingOrders)..addColumns([count]);
+    final query = selectOnly(pendingOrders)
+      ..addColumns([count])
+      ..where(pendingOrders.synced.equals(false));
     final row = await query.getSingle();
     return row.read(count) ?? 0;
   }

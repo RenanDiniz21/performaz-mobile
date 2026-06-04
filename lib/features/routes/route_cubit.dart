@@ -35,6 +35,19 @@ class RouteError extends RouteState {
 
 class RouteEmpty extends RouteState {}
 
+class RouteRefreshFailed extends RouteLoaded {
+  const RouteRefreshFailed({
+    required super.stops,
+    super.routeId,
+    required this.message,
+  });
+
+  final String message;
+
+  @override
+  List<Object?> get props => [...super.props, message];
+}
+
 class RouteCubit extends Cubit<RouteState> {
   RouteCubit({required this.apiClient, required this.secureStorage})
     : super(RouteLoading());
@@ -43,11 +56,15 @@ class RouteCubit extends Cubit<RouteState> {
   final SecureStorage secureStorage;
 
   Future<void> loadRoute([String? vendorId]) async {
-    emit(RouteLoading());
+    final previous = state;
+    final hadData = previous is RouteLoaded;
+
+    if (!hadData) emit(RouteLoading());
+
     try {
       final actualVendorId = vendorId ?? await secureStorage.getUserId();
       if (actualVendorId == null) {
-        emit(const RouteError(message: 'Usuário não autenticado.'));
+        if (!hadData) emit(const RouteError(message: 'Usuário não autenticado.'));
         return;
       }
       final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -62,12 +79,10 @@ class RouteCubit extends Cubit<RouteState> {
         return;
       }
 
-      // Response is an array of routes; take the first one for today
       final routes = data as List;
       final routeData = routes.first as Map<String, dynamic>;
       final routeId = routeData['id'] as String?;
 
-      // Fetch full route details with clients
       if (routeId != null) {
         final detailResponse = await apiClient.get('/routes/$routeId');
         final clientsResponse = await apiClient.get('/clients');
@@ -89,9 +104,29 @@ class RouteCubit extends Cubit<RouteState> {
         emit(RouteEmpty());
       }
     } on DioException catch (e) {
-      emit(RouteError(message: _parseDioError(e)));
+      if (hadData) {
+        _emitRefreshError(e);
+      } else {
+        emit(RouteError(message: _parseDioError(e)));
+      }
     } catch (e) {
-      emit(RouteError(message: e.toString()));
+      if (hadData) {
+        _emitRefreshError(e);
+      } else {
+        emit(RouteError(message: e.toString()));
+      }
+    }
+  }
+
+  void _emitRefreshError(Object e) {
+    // Keep current data, just re-emit so UI can show a snackbar
+    final current = state;
+    if (current is RouteLoaded) {
+      emit(RouteRefreshFailed(
+        stops: current.stops,
+        routeId: current.routeId,
+        message: e is DioException ? _parseDioError(e) : e.toString(),
+      ));
     }
   }
 
@@ -115,6 +150,18 @@ class RouteCubit extends Cubit<RouteState> {
     }
   }
 
+  void markClientVisited(String clientId) {
+    final current = state;
+    if (current is! RouteLoaded) return;
+
+    emit(
+      RouteLoaded(
+        stops: markRouteStopAsVisited(current.stops, clientId),
+        routeId: current.routeId,
+      ),
+    );
+  }
+
   void markClientSale(String clientId) {
     final current = state;
     if (current is! RouteLoaded) return;
@@ -122,6 +169,18 @@ class RouteCubit extends Cubit<RouteState> {
     emit(
       RouteLoaded(
         stops: markRouteStopAsSale(current.stops, clientId),
+        routeId: current.routeId,
+      ),
+    );
+  }
+
+  void markClientSkipped(String clientId, String reason) {
+    final current = state;
+    if (current is! RouteLoaded) return;
+
+    emit(
+      RouteLoaded(
+        stops: markRouteStopAsSkipped(current.stops, clientId, reason),
         routeId: current.routeId,
       ),
     );
@@ -160,6 +219,11 @@ List<RouteStop> buildRouteStops({
   return routeClients.map((map) {
     final clientId = map['clientId'] as String? ?? map['client_id'] as String;
     final client = clientsById[clientId];
+    final checkinLat = (map['lat'] as num?)?.toDouble();
+    final checkinLng = (map['lng'] as num?)?.toDouble();
+    final clientLat = (client?['latitude'] as num?)?.toDouble();
+    final clientLng = (client?['longitude'] as num?)?.toDouble();
+    final lastOrderRaw = client?['lastOrderDate'] ?? client?['last_order_date'];
     return RouteStop(
       id: map['id'] as String,
       routeId: routeId,
@@ -176,6 +240,17 @@ List<RouteStop> buildRouteStops({
       checkinAt: map['checkInTime'] != null
           ? DateTime.tryParse(map['checkInTime'].toString())
           : null,
+      checkinLatitude: checkinLat ?? clientLat,
+      checkinLongitude: checkinLng ?? clientLng,
+      phone: client?['phone'] as String?,
+      segment: client?['segment'] as String?,
+      clientNotes: client?['notes'] as String?,
+      totalOrders: client?['totalOrders'] as int? ?? client?['total_orders'] as int?,
+      totalRevenue: (client?['totalRevenue'] as num?)?.toDouble() ??
+          (client?['total_revenue'] as num?)?.toDouble(),
+      lastOrderDate: lastOrderRaw != null
+          ? DateTime.tryParse(lastOrderRaw.toString())
+          : null,
     );
   }).toList();
 }
@@ -186,6 +261,7 @@ VisitStatus parseVisitStatus(String status) {
     'visitado' => VisitStatus.visitado,
     'venda_realizada' => VisitStatus.vendaRealizada,
     'sem_venda' => VisitStatus.visitaSemVenda,
+    'pulado' => VisitStatus.pulado,
     _ => VisitStatus.pendente,
   };
 }
@@ -204,6 +280,16 @@ String _formatClientAddress(Map<String, dynamic>? client) {
 List<Map<String, dynamic>> buildRouteReorderPayload(List<RouteStop> stops) {
   return stops.indexed
       .map((entry) => {'clientId': entry.$2.clientId, 'order': entry.$1 + 1})
+      .toList();
+}
+
+List<RouteStop> markRouteStopAsVisited(List<RouteStop> stops, String clientId) {
+  return stops
+      .map(
+        (stop) => stop.clientId == clientId && stop.status == VisitStatus.pendente
+            ? stop.copyWith(status: VisitStatus.visitado)
+            : stop,
+      )
       .toList();
 }
 
@@ -227,6 +313,23 @@ List<RouteStop> markRouteStopAsNoSale(
         (stop) => stop.clientId == clientId
             ? stop.copyWith(
                 status: VisitStatus.visitaSemVenda,
+                noSaleReason: reason,
+              )
+            : stop,
+      )
+      .toList();
+}
+
+List<RouteStop> markRouteStopAsSkipped(
+  List<RouteStop> stops,
+  String clientId,
+  String reason,
+) {
+  return stops
+      .map(
+        (stop) => stop.clientId == clientId
+            ? stop.copyWith(
+                status: VisitStatus.pulado,
                 noSaleReason: reason,
               )
             : stop,
